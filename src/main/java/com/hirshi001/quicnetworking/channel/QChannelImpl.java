@@ -8,10 +8,13 @@ import io.netty.channel.*;
 import io.netty.incubator.codec.quic.QuicStreamChannel;
 import io.netty.incubator.codec.quic.QuicStreamPriority;
 import io.netty.incubator.codec.quic.QuicStreamType;
+import io.netty.util.CharsetUtil;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.Promise;
 
 public class QChannelImpl implements QChannel {
+
+    private static final String CHANNEL_HANDLER = "channelHandler";
 
     private final Connection<?, ?> connection;
     private final Enum<?> channelId;
@@ -19,7 +22,7 @@ public class QChannelImpl implements QChannel {
 
     private volatile io.netty.channel.Channel outChannel, inChannel;
 
-    private ChannelHandler channelHandler;
+    private volatile ChannelHandler channelHandler;
 
     private final Object lock = new Object();
 
@@ -41,7 +44,7 @@ public class QChannelImpl implements QChannel {
         synchronized (lock) {
             this.inChannel = inputStream;
             if (channelHandler != null) {
-                inChannel.pipeline().addLast(channelHandler);
+                inChannel.pipeline().addLast(CHANNEL_HANDLER, channelHandler);
             } else {
                 inChannel.pipeline().addLast(new ChannelInboundHandlerAdapter() {
                     @Override
@@ -52,7 +55,8 @@ public class QChannelImpl implements QChannel {
                             }
                             if (channelHandler != null) {
                                 ctx.pipeline().remove(this);
-                                super.channelRead(ctx, msg);
+                                assert ctx.pipeline().get(CHANNEL_HANDLER) == channelHandler;
+                                ctx.channel().eventLoop().execute(() -> ctx.channel().pipeline().fireChannelRead(copyReference));
                             }
                         }
 
@@ -70,7 +74,7 @@ public class QChannelImpl implements QChannel {
                 connection.getConnection().eventLoop().register(inChannel);
 
                 if (channelHandler != null) {
-                    inChannel.pipeline().addLast(channelHandler);
+                    inChannel.pipeline().addLast(CHANNEL_HANDLER, channelHandler);
                 }
             }
             inChannel.pipeline().fireChannelRead(frame);
@@ -107,7 +111,7 @@ public class QChannelImpl implements QChannel {
                     synchronized (lock) {
                         outChannel = ctx.channel();
                         if (channelHandler != null) {
-                            outChannel.pipeline().addLast(channelHandler);
+                            outChannel.pipeline().addLast(CHANNEL_HANDLER, channelHandler);
                         }
                     }
                 }
@@ -126,7 +130,7 @@ public class QChannelImpl implements QChannel {
                                 promise.setFailure(f.cause());
                             }
                         });
-                outChannel.pipeline().addLast(channelHandler);
+                outChannel.pipeline().addLast(CHANNEL_HANDLER, channelHandler);
 
                 return promise;
 
@@ -146,13 +150,13 @@ public class QChannelImpl implements QChannel {
 
             this.channelHandler = channelHandler;
             if (inChannel != null) {
-                inChannel.pipeline().addLast(channelHandler);
+                inChannel.pipeline().addLast(CHANNEL_HANDLER, channelHandler);
                 if (copyReference != null) {
                     inChannel.pipeline().fireChannelRead(copyReference);
                 }
             }
             if (outChannel != null) {
-                outChannel.pipeline().addLast(channelHandler);
+                outChannel.pipeline().addLast(CHANNEL_HANDLER, channelHandler);
             }
         }
     }

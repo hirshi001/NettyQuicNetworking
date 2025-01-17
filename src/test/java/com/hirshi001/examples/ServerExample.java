@@ -13,6 +13,7 @@ import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 
+import java.lang.annotation.ElementType;
 import java.net.InetSocketAddress;
 import java.security.cert.CertificateException;
 import java.util.ArrayList;
@@ -69,10 +70,10 @@ public class ServerExample {
 
                 @Override
                 public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-                    super.channelInactive(ctx);
                     synchronized (connectionList) {
                         connectionList.remove(connection);
                     }
+                    super.channelInactive(ctx);
                 }
 
                 @Override

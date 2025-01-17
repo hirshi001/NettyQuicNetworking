@@ -1,5 +1,6 @@
 package com.hirshi001.quicnetworking.channel;
 
+import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelPromise;
@@ -40,6 +41,17 @@ public interface QChannel {
     default QChannel flush() {
         getOutChannel().flush();
         return this;
+    }
+
+    default void close() {
+        Channel outChannel = getOutChannel();
+        if(outChannel != null) {
+            outChannel.close();
+        }
+        Channel inChannel = getInChannel();
+        if(inChannel != null) {
+            inChannel.close();
+        }
     }
 
 

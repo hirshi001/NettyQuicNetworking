@@ -6,6 +6,7 @@ import io.netty.buffer.Unpooled;
 import io.netty.channel.*;
 import io.netty.incubator.codec.quic.QuicChannel;
 import io.netty.incubator.codec.quic.QuicStreamChannel;
+import io.netty.util.CharsetUtil;
 
 
 public class ConnectionImpl<Channels extends Enum<Channels>, Priority extends Enum<Priority>> implements Connection<Channels, Priority> {
@@ -101,7 +102,6 @@ public class ConnectionImpl<Channels extends Enum<Channels>, Priority extends En
             public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
                 ByteBuf in = (ByteBuf) msg;
 
-                // System.out.println(in.toString(CharsetUtil.UTF_8));
                 if (in.readableBytes() < 4)
                     return;
 

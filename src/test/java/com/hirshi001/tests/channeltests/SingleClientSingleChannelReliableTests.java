@@ -57,6 +57,7 @@ public class SingleClientSingleChannelReliableTests {
         QChannel clientC1 = clientConnection.getChannel(Channels.C1);
         Promise<ByteBuf> receivedBuffer = clientConnection.getConnection().eventLoop().newPromise();
         Promise<ByteBuf> receivedBuffer2 = clientConnection.getConnection().eventLoop().newPromise();
+
         clientC1.setChannelHandler(new ChannelInboundHandlerAdapter() {
             @Override
             public void channelRead(ChannelHandlerContext ctx, Object msg) {
@@ -69,7 +70,7 @@ public class SingleClientSingleChannelReliableTests {
 
 
         // Message should be received almost immediately
-        assertTrue(receivedBuffer.await(100, TimeUnit.MILLISECONDS), "Message not received in time");
+        assertTrue(receivedBuffer.await(100, TimeUnit.MILLISECONDS), "First Message not received in time");
         ByteBuf received = receivedBuffer.get();
 
         assertEquals(message, received.toString(Charset.defaultCharset()), "First received message does not match sent message");
@@ -81,7 +82,7 @@ public class SingleClientSingleChannelReliableTests {
 
         serverC1.writeAndFlush(Unpooled.copiedBuffer(messageBytes2)).sync();
 
-        assertTrue(receivedBuffer2.await(100, TimeUnit.MILLISECONDS), "Message not received in time");
+        assertTrue(receivedBuffer2.await(100, TimeUnit.MILLISECONDS), "Second Message not received in time");
         ByteBuf received2 = receivedBuffer2.get();
 
         assertEquals(message2, received2.toString(Charset.defaultCharset()), "Second received message does not match sent message");
@@ -89,6 +90,11 @@ public class SingleClientSingleChannelReliableTests {
 
         assertTrue(serverConnection.close().await(100, TimeUnit.MILLISECONDS));
         assertTrue(clientConnection.close().await(100, TimeUnit.MILLISECONDS));
+
+        serverConnectionFactory.close().sync();
+        clientConnectionFactory.close().sync();
+
+        Thread.sleep(1000);
     }
 
     @Test
@@ -144,5 +150,8 @@ public class SingleClientSingleChannelReliableTests {
 
         assertTrue(serverConnection.close().await(100, TimeUnit.MILLISECONDS));
         assertTrue(clientConnection.close().await(100, TimeUnit.MILLISECONDS));
+
+        serverConnectionFactory.close().sync();
+        clientConnectionFactory.close().sync();
     }
 }

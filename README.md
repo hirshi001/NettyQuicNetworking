@@ -4,9 +4,9 @@ stream created and datagram sent in order to demultiplex the streams/datagrams i
 
 ## Usage
 ### Shared
+First you must define what Channels and Priority levels you wish to support
 ```java
 public class Shared {
-    // First define what channels and priority levels you want to use
     public enum Channels {
         TextChannel, VoiceChannel, GameChannel
     }
@@ -19,6 +19,8 @@ public class Shared {
 ```
 
 ### Server
+Since this is a light wrapper around Netty Quic, you will directly need to create the Netty Quic Server and Clients, and
+add elements from NettyQuicNetworking as handlers.
 ```java
 public static void main(String[] args) {
 
@@ -55,16 +57,15 @@ public static void main(String[] args) {
 
     while (true) {
         Connection<Channel, Priority> newConnection = ChannconnectionHandler.poll();
-        // Create streams, add handlers, etc... do whatever with your new connections
+        // handle the connection
+        handleConnection(newConnection);
     }
 }
 ```
 
 ## Client
-
+Very similar to the server, but pay attention to where the handler and streamHandler is added to in this case
 ```java
-import java.sql.Connection;
-
 public static void main(String[] args) {
 
     // First define the connection handler you wish to use for when the client connects to the server
@@ -101,9 +102,69 @@ public static void main(String[] args) {
 
     // Now you can use the connection handler to handle new connections:
     Connection<Channel, Priority> connection = connectionHandler.poll();
-    
-    // Create streams, add handlers, etc... do whatever with your new connections
+    // handle the connection
+    handleConnection(connection);
 
+}
+```
+
+## What you can do with your new connections
+There are different things you can do with your connection. Here are some examples
+
+### Getting channels and using them
+```java
+public static void handleConnection(Connection<Channel, Priority> connection) {
+    // You can get any channel you want
+    QC textChannel = connection.getChannel(Channels.TextChannel);
+
+    // You can set the priority of the channel
+    connection.setChannelPriority(Channel.TextChannel, Priority.Low);
+
+    // If you want to send data to the channel, you can do so by
+    textChannel.openOutputStream(QChannel.Reliability.RELIABLE);
+    textChannel.writeAndFlush(Unpooled.copiedBuffer("Hello, World!".getBytes()));
+
+    // You likely want to handle data coming from the other end of the channel
+    textChannel.setChannelHandler(new ChannelInboundHandlerAdapter() {
+        @Override
+        public void channelRead(ChannelHandlerContext ctx, Object msg) {
+            ByteBuf buf = (ByteBuf) msg;
+            System.out.println(buf.toString(StandardCharsets.UTF_8));
+            buf.release();
+        }
+        
+        // IMPORTANT, the channel handler must be sharable if the channel is both written to and read from
+        @Override
+        public boolean isSharable() {
+            return true;
+        }
+    });
+
+    // You can close the channel
+    textChannel.close();
+}
+
+```
+
+### Message Handlers
+This library provides a way to automatically register and handle messages (Objects) of different types.
+```java
+public static void handleConnection(Connection<Channel, Priority> connection) {
+    
+    // Create the Message Registry
+    MessageRegistry messageRegistry = new DefaultMessageRegistry();
+    messageRegistry.regi
+    
+    // You can register a message handler
+    connection.registerMessageHandler(String.class, new MessageHandler<String>() {
+        @Override
+        public void handle(ChannelHandlerContext ctx, String msg) {
+            System.out.println(msg);
+        }
+    });
+
+    // You can send a message
+    connection.sendMessage("Hello, World!");
 }
 ```
 

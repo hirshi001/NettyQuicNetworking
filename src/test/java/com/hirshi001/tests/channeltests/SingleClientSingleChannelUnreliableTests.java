@@ -66,6 +66,8 @@ public class SingleClientSingleChannelUnreliableTests {
         assertEquals(message, received.toString(Charset.defaultCharset()), "Received message does not match sent message");
         received.release();
 
+        clientC1.close().sync();
+        serverC1.close().sync();
 
         clientNetworkEnvironment.close();
         serverNetworkEnvironment.close();
@@ -112,6 +114,9 @@ public class SingleClientSingleChannelUnreliableTests {
         assertEquals(message2, received.toString(Charset.defaultCharset()), "Second received message does not match sent message");
         received.release();
 
+        clientC1.close().sync();
+        serverC1.close().sync();
+
         clientNetworkEnvironment.close();
         serverNetworkEnvironment.close();
     }
@@ -149,6 +154,9 @@ public class SingleClientSingleChannelUnreliableTests {
 
         assertEquals(message, received.toString(Charset.defaultCharset()), "Received message does not match sent message");
         received.release();
+
+        clientC1.close().sync();
+        serverC1.close().sync();
 
         clientNetworkEnvironment.close();
         serverNetworkEnvironment.close();
@@ -195,6 +203,9 @@ public class SingleClientSingleChannelUnreliableTests {
         assertEquals(message2, received.toString(Charset.defaultCharset()), "Second received message does not match sent message");
         received.release();
 
+        clientC1.close().sync();
+        serverC1.close().sync();
+        
         clientNetworkEnvironment.close();
         serverNetworkEnvironment.close();
     }

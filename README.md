@@ -153,18 +153,41 @@ public static void handleConnection(Connection<Channel, Priority> connection) {
     
     // Create the Message Registry
     MessageRegistry messageRegistry = new DefaultMessageRegistry();
-    messageRegistry.regi
     
-    // You can register a message handler
-    connection.registerMessageHandler(String.class, new MessageHandler<String>() {
+    // You must create handlers (Functional Interfaces) for each message type you expect to receive
+    messageRegistry.register(StringMessage::new, Handlers::handleStringMessage, 0); 
+    messageRegistry.register(IntegerArrayMessage::new, Handlers::handleIntegerArrayMessage, 1);
+    messageRegistry.register(PlayerMoveMessage::new, 2); // No need to add handler if you are only sending and not receiving
+
+    QC textChannel = connection.getChannel(Channels.GameChannel);
+    connection.setChannelPriority(Channel.GameChannel, Priority.High);
+
+    textChannel.openOutputStream(QChannel.Reliability.Unreliable);
+
+    // You likely want to handle data coming from the other end of the channel
+    textChannel.setChannelHandler(new ChannelInboundHandlerAdapter() {
         @Override
-        public void handle(ChannelHandlerContext ctx, String msg) {
-            System.out.println(msg);
+        public void channelRead(ChannelHandlerContext ctx, Object msg) {
+            // MessageDecoder is required to encode and decode messages
+            // In order to handle the messages, you can use either AsyncMessageHandler, PollableMessageHandler, or some other handler of your choice.
+            // AsyncMessageHandler is recommended for most cases, as it will automatically call the corresponding message handler for you
+            ctx.pipeline().addLast(new MessageCodec(messageRegistry), new AsyncMessageHandler(messageRegistry));
+        }
+
+        // IMPORTANT, the channel handler must be sharable if the channel is both written to and read from
+        @Override
+        public boolean isSharable() {
+            return true;
         }
     });
 
-    // You can send a message
-    connection.sendMessage("Hello, World!");
+    // You can send a message, as long as the other side has a handler for it
+    connection.sendMessage(new StringMessage("Hello, World!"));
+    connection.sendMessage(new IntegerArrayMessage(new int[]{1, 2, 3, 4, 5}));
+    connection.sendMessage(new PlayerMoveMessage(Player.position.x, Player.position.y));
+    
+    // ...
+    textChannel.close()
 }
 ```
 

@@ -138,7 +138,8 @@ public class CodecAsyncHandlerUsageTest {
         assertTrue(clientReceivedArrayMessage.await(100, TimeUnit.MILLISECONDS), "Client did not receive array message");
         assertArrayEquals(messageArray, clientReceivedArrayMessage.get().array, "Client received array message does not match sent message");
 
-
+        clientC1.close().sync();
+        serverC1.close().sync();
 
         clientNetworkEnvironment.close();
         serverNetworkEnvironment.close();

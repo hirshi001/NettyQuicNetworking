@@ -120,6 +120,9 @@ public class CodecPollingHandlerUsageTest {
         assertEquals(message, clientReceivedStringMessage.msg.value, "Client received string message does not match sent message");
         assertArrayEquals(messageArray, clientReceivedArrayMessage.msg.array, "Client received array message does not match sent message");
 
+        clientC1.close().sync();
+        serverC1.close().sync();
+
         clientNetworkEnvironment.close();
         serverNetworkEnvironment.close();
 

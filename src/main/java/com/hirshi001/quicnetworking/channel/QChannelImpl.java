@@ -10,6 +10,7 @@ import io.netty.incubator.codec.quic.QuicStreamPriority;
 import io.netty.incubator.codec.quic.QuicStreamType;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.Promise;
+import io.netty.util.concurrent.PromiseCombiner;
 
 public class QChannelImpl implements QChannel {
 
@@ -47,7 +48,7 @@ public class QChannelImpl implements QChannel {
             } else {
                 inChannel.pipeline().addLast(new ChannelInboundHandlerAdapter() {
                     @Override
-                    public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
+                    public void channelRead(ChannelHandlerContext ctx, Object msg) {
                         synchronized (lock) {
                             if (msg instanceof ByteBuf in) {
                                 copyReference = in;
@@ -86,6 +87,41 @@ public class QChannelImpl implements QChannel {
 
     public io.netty.channel.Channel getInChannel() {
         return inChannel;
+    }
+
+
+    @Override
+    public Promise<QChannel> close() {
+
+        synchronized (lock) {
+            if (outChannel == null && inChannel == null) {
+                return connection.getConnection().eventLoop().<QChannel>newPromise().setSuccess(this);
+            }
+
+            EventLoop eventLoop = connection.getConnection().eventLoop();
+
+            Promise<QChannel> promise = eventLoop.newPromise();
+
+            if (eventLoop.inEventLoop()) {
+                close0(eventLoop).addListener(future -> promise.setSuccess(this));
+            } else {
+                eventLoop.execute(() -> close0(eventLoop).addListener(future -> promise.setSuccess(this)));
+            }
+            return promise;
+        }
+    }
+
+    private Promise<Void> close0(EventLoop eventLoop) {
+        PromiseCombiner promiseCombiner = new PromiseCombiner(eventLoop);
+        Promise<Void> promise = eventLoop.newPromise();
+        if (outChannel != null) {
+            promiseCombiner.add(outChannel.close());
+        }
+        if (inChannel != null) {
+            promiseCombiner.add(inChannel.close());
+        }
+        promiseCombiner.finish(promise);
+        return promise;
     }
 
 
@@ -129,7 +165,7 @@ public class QChannelImpl implements QChannel {
                                 promise.setFailure(f.cause());
                             }
                         });
-                if(channelHandler != null)
+                if (channelHandler != null)
                     outChannel.pipeline().addLast(CHANNEL_HANDLER, channelHandler);
 
                 return promise;

@@ -88,6 +88,9 @@ public class SingleClientSingleChannelReliableTests {
 
         assertEquals(message2, received2.toString(Charset.defaultCharset()), "Second received message does not match sent message");
 
+        clientC1.close().sync();
+        serverC1.close().sync();
+
         clientNetworkEnvironment.close();
         serverNetworkEnvironment.close();
 
@@ -141,6 +144,9 @@ public class SingleClientSingleChannelReliableTests {
         ByteBuf received2 = receivedBuffer2.get();
 
         assertEquals(message2, received2.toString(Charset.defaultCharset()), "Second received message does not match sent message");
+
+        clientC1.close().sync();
+        serverC1.close().sync();
 
         clientNetworkEnvironment.close();
         serverNetworkEnvironment.close();

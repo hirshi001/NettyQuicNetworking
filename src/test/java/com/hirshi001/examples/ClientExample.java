@@ -101,6 +101,12 @@ public class ClientExample {
                 textChannel.writeAndFlush(buffer);
             }
             System.out.println("Exiting");
+
+            try {
+                textChannel.close().sync();
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
         }
     }
 }

@@ -5,6 +5,7 @@ import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelPromise;
 import io.netty.util.concurrent.Future;
+import io.netty.util.concurrent.Promise;
 
 
 public interface QChannel {
@@ -43,16 +44,7 @@ public interface QChannel {
         return this;
     }
 
-    default void close() {
-        Channel outChannel = getOutChannel();
-        if(outChannel != null) {
-            outChannel.close();
-        }
-        Channel inChannel = getInChannel();
-        if(inChannel != null) {
-            inChannel.close();
-        }
-    }
+    Promise<QChannel> close();
 
 
 

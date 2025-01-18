@@ -128,6 +128,13 @@ public class SingleClientManyChannelTests {
         assertEquals(100, serverReceivedCount.get(), "Server did not receive all messages");
         assertEquals(100, clientReceivedCount.get(), "Client did not receive all messages");
 
+        for (int i = 0; i < 100; i++) {
+            QChannel serverC = serverConnection.getChannel(Channels.values()[i]);
+            serverC.close().sync();
+
+            QChannel clientC = clientConnection.getChannel(Channels.values()[i]);
+            clientC.close().sync();
+        }
 
         clientNetworkEnvironment.close();
         serverNetworkEnvironment.close();

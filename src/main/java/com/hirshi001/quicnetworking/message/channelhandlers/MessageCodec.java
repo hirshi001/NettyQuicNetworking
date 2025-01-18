@@ -5,12 +5,15 @@ import com.hirshi001.quicnetworking.message.MessageHolder;
 import com.hirshi001.quicnetworking.message.messageregistry.MessageRegistry;
 import com.hirshi001.quicnetworking.util.ByteBufferUtil;
 import io.netty.buffer.ByteBuf;
+import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.ByteToMessageCodec;
+import io.netty.handler.codec.MessageToMessageCodec;
 
 import java.util.List;
 
-public class MessageCodec extends ByteToMessageCodec<Message> {
+@ChannelHandler.Sharable
+public class MessageCodec extends MessageToMessageCodec<ByteBuf, Message> {
 
     private final MessageRegistry messageRegistry;
 
@@ -73,7 +76,6 @@ public class MessageCodec extends ByteToMessageCodec<Message> {
 
     }
 
-    @Override
     public void encode(ChannelHandlerContext ctx, Message msg, ByteBuf out) throws Exception {
         int msgId = messageRegistry.getId(msg.getClass());
 
@@ -113,5 +115,12 @@ public class MessageCodec extends ByteToMessageCodec<Message> {
         }else {
             msg.writeBytes(out);
         }
+    }
+
+    @Override
+    protected void encode(ChannelHandlerContext ctx, Message msg, List<Object> out) throws Exception {
+        ByteBuf buf = ctx.alloc().buffer();
+        encode(ctx, msg, buf);
+        out.add(buf);
     }
 }

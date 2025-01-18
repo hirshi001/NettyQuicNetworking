@@ -13,8 +13,7 @@ import org.junit.jupiter.api.Test;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class CodecTest {
 
@@ -38,27 +37,45 @@ public class CodecTest {
         StringMessage decoded = (StringMessage) out.get(0);
         assertEquals(string, decoded.value);
     }
+    @Test
+    public void testMultipleMessage0ByteSize() throws Exception {
+        testMultipleMessages(0);
+    }
 
     @Test
-    public void testMultipleMessage() throws Exception {
+    public void testMultipleMessage1ByteSize() throws Exception {
         testMultipleMessages(1);
     }
 
     @Test
-    public void testMultipleMessageNoSizeEncoding() throws Exception {
-        testMultipleMessages(0);
+    public void testMultipleMessage2ByteSize() throws Exception {
+        testMultipleMessages(2);
+    }
+
+    @Test
+    public void testMultipleMessage4ByteSize() throws Exception {
+        testMultipleMessages(4);
+    }
+
+    @Test
+    public void invalidByteSize() {
+        MessageRegistry registry = new DefaultMessageRegistry();
+        assertThrows(IllegalArgumentException.class, () -> registry.setBytesForSize(3));
+        assertThrows(IllegalArgumentException.class, () -> registry.setBytesForSize(-1));
+        assertThrows(IllegalArgumentException.class, () -> registry.setBytesForSize(5));
     }
 
     private void testMultipleMessages(int bytesForSize) throws Exception {
 
         MessageRegistry registry = new DefaultMessageRegistry();
+        MessageCodec codec = new MessageCodec(registry);
         registry.setBytesForSize(bytesForSize);
 
+        // Register messages
         registry.register(StringMessage::new, StringMessage.class, 0);
         registry.register(IntegerArrayMessage::new, IntegerArrayMessage.class, 1);
         registry.register(IntegerMessage::new, IntegerMessage.class, 2);
 
-        MessageCodec codec = new MessageCodec(registry);
 
         // Prepare messages
         String string = "Hello World!";
@@ -79,6 +96,10 @@ public class CodecTest {
         // Decode messages
         List<Object> out = new ArrayList<>();
         codec.decode(null, buf, out);
+
+        assertInstanceOf(StringMessage.class, out.get(0));
+        assertInstanceOf(IntegerArrayMessage.class, out.get(1));
+        assertInstanceOf(IntegerMessage.class, out.get(2));
 
         StringMessage decodedString = (StringMessage) out.get(0);
         IntegerArrayMessage decodedArray = (IntegerArrayMessage) out.get(1);

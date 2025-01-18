@@ -56,7 +56,7 @@ public static void main(String[] args) {
     // Now you can use the connection handler to handle new connections:
 
     while (true) {
-        Connection<Channel, Priority> newConnection = ChannconnectionHandler.poll();
+        Connection<Channel, Priority> newConnection = connectionHandler.poll();
         // handle the connection
         handleConnection(newConnection);
     }
@@ -187,7 +187,7 @@ public static void handleConnection(Connection<Channel, Priority> connection) {
     connection.sendMessage(new PlayerMoveMessage(Player.position.x, Player.position.y));
     
     // ...
-    textChannel.close()
+    textChannel.close();
 }
 ```
 

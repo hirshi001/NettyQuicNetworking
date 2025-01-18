@@ -7,35 +7,50 @@ import com.hirshi001.quicnetworking.connection.Connection;
 import com.hirshi001.quicnetworking.connectionfactory.ConnectionFactory;
 import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.BlockingPollableConnectionHandler;
 import com.hirshi001.quicnetworking.util.ByteBufferUtil;
-import com.hirshi001.tests.TestUtils;
+import com.hirshi001.tests.util.NetworkEnvironment;
+import com.hirshi001.tests.util.TestUtils;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 
-import java.lang.annotation.ElementType;
+import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.security.cert.CertificateException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Scanner;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 
 public class ServerExample {
 
-    public static void main(String[] args) throws ExecutionException, InterruptedException, CertificateException {
+    public static void main(String[] args) throws ExecutionException, InterruptedException, CertificateException, IOException {
 
         System.out.println("Server Starting");
 
         BlockingPollableConnectionHandler<Channels, Priority> connectionHandler = new BlockingPollableConnectionHandler<>();
-        ConnectionFactory<Channels, Priority> connectionFactory = TestUtils.newServer(Channels.class, Priority.class, new InetSocketAddress( 9999), connectionHandler);
-
+        NetworkEnvironment<Channels, Priority> networkEnvironment = TestUtils.newServer(Channels.class, Priority.class, new InetSocketAddress( 9999), connectionHandler);
 
         TextChannelHandler textChannelHandler = new TextChannelHandler();
 
+        Scanner scanner = new Scanner(System.in);
+
         while(true) {
-            Connection<Channels, Priority> newConnection = connectionHandler.pollNewConnection();
-            textChannelHandler.newConnection(newConnection);
+            Connection<Channels, Priority> newConnection = connectionHandler.pollNewConnection(100, TimeUnit.MILLISECONDS);
+            if(newConnection != null) {
+                textChannelHandler.newConnection(newConnection);
+            }
+
+            if(System.in.available() > 0) {
+                String message = scanner.nextLine();
+                if(message.equals("exit")) {
+                    break;
+                }
+            }
         }
+
+        networkEnvironment.close();
     }
 
     static class TextChannelHandler {

@@ -8,7 +8,6 @@ import io.netty.channel.*;
 import io.netty.incubator.codec.quic.QuicStreamChannel;
 import io.netty.incubator.codec.quic.QuicStreamPriority;
 import io.netty.incubator.codec.quic.QuicStreamType;
-import io.netty.util.CharsetUtil;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.Promise;
 
@@ -130,7 +129,8 @@ public class QChannelImpl implements QChannel {
                                 promise.setFailure(f.cause());
                             }
                         });
-                outChannel.pipeline().addLast(CHANNEL_HANDLER, channelHandler);
+                if(channelHandler != null)
+                    outChannel.pipeline().addLast(CHANNEL_HANDLER, channelHandler);
 
                 return promise;
 

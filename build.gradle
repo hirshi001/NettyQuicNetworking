@@ -20,17 +20,10 @@ dependencies {
 
     // jetbrain annotations
     implementation 'org.jetbrains:annotations:23.0.0'
-    // https://mvnrepository.com/artifact/org.apache.fury/fury-core
-    implementation 'org.apache.fury:fury-core:0.9.0'
-
-    implementation 'tech.kwik:kwik:0.9.1'
 
 }
 
 
 test {
     useJUnitPlatform()
-
-    // show standard out and standard error of the test JVM on the console
-    testLogging.showStandardStreams = true
 }

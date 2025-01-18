@@ -4,11 +4,13 @@ import com.hirshi001.quicnetworking.channel.QChannel;
 import com.hirshi001.quicnetworking.connection.Connection;
 import com.hirshi001.quicnetworking.connectionfactory.ConnectionFactory;
 import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.BlockingPollableConnectionHandler;
-import com.hirshi001.tests.TestUtils;
+import com.hirshi001.tests.util.NetworkEnvironment;
+import com.hirshi001.tests.util.TestUtils;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.util.NetUtil;
+import io.netty.util.ReferenceCountUtil;
 import org.junit.jupiter.api.Test;
 
 import java.net.InetSocketAddress;
@@ -51,12 +53,11 @@ public class SingleClientManyChannelTests {
         final String message = "Hello World from Server";
         final byte[] messageBytes = message.getBytes(Charset.defaultCharset());
 
-
         BlockingPollableConnectionHandler<Channels, Priority> serverConnectionHandler = new BlockingPollableConnectionHandler<>();
-        ConnectionFactory<Channels, Priority> serverConnectionFactory = TestUtils.newServer(Channels.class, Priority.class, new InetSocketAddress(9999), serverConnectionHandler);
+        NetworkEnvironment<Channels, Priority> serverNetworkEnvironment = TestUtils.newServer(Channels.class, Priority.class, new InetSocketAddress(9999), serverConnectionHandler);
 
         BlockingPollableConnectionHandler<Channels, Priority> clientConnectionHandler = new BlockingPollableConnectionHandler<>();
-        ConnectionFactory<Channels, Priority> clientConnectionFactory = TestUtils.newClient(Channels.class, Priority.class, new InetSocketAddress(NetUtil.LOCALHOST4, 9999), clientConnectionHandler);
+        NetworkEnvironment<Channels, Priority> clientNetworkEnvironment = TestUtils.newClient(Channels.class, Priority.class, new InetSocketAddress(NetUtil.LOCALHOST4, 9999), clientConnectionHandler);
 
         Connection<Channels, Priority> serverConnection = serverConnectionHandler.pollNewConnection(100, TimeUnit.MILLISECONDS);
 
@@ -66,11 +67,16 @@ public class SingleClientManyChannelTests {
         CountDownLatch serverReceivedLatch = new CountDownLatch(100);
         for (int i = 0; i < 100; i++) {
             QChannel serverC = serverConnection.getChannel(Channels.values()[i]);
-            serverC.openOutputStream(i < 50 ? QChannel.Reliability.RELIABLE : QChannel.Reliability.UNRELIABLE).sync();
+
+            final boolean reliable = i < 50;
+            serverC.openOutputStream(reliable? QChannel.Reliability.RELIABLE : QChannel.Reliability.UNRELIABLE).sync();
 
             serverC.setChannelHandler(new ChannelInboundHandlerAdapter() {
                 @Override
                 public void channelRead(ChannelHandlerContext ctx, Object msg) {
+                    if(!reliable) {
+                        ReferenceCountUtil.release(msg);
+                    }
                     serverReceivedCount.incrementAndGet();
                     serverReceivedLatch.countDown();
                 }
@@ -87,11 +93,15 @@ public class SingleClientManyChannelTests {
         CountDownLatch clientReceivedLatch = new CountDownLatch(100);
         for (int i = 0; i < 100; i++) {
             QChannel clientC = clientConnection.getChannel(Channels.values()[i]);
-            clientC.openOutputStream(i < 50 ? QChannel.Reliability.RELIABLE : QChannel.Reliability.UNRELIABLE).sync();
+            final boolean reliable = i < 50;
+            clientC.openOutputStream(reliable? QChannel.Reliability.RELIABLE : QChannel.Reliability.UNRELIABLE).sync();
 
             clientC.setChannelHandler(new ChannelInboundHandlerAdapter() {
                 @Override
                 public void channelRead(ChannelHandlerContext ctx, Object msg) {
+                    if(!reliable) {
+                        ReferenceCountUtil.release(msg);
+                    }
                     clientReceivedCount.incrementAndGet();
                     clientReceivedLatch.countDown();
                 }
@@ -118,8 +128,9 @@ public class SingleClientManyChannelTests {
         assertEquals(100, serverReceivedCount.get(), "Server did not receive all messages");
         assertEquals(100, clientReceivedCount.get(), "Client did not receive all messages");
 
-        assertTrue(serverConnection.close().await(100, TimeUnit.MILLISECONDS));
-        assertTrue(clientConnection.close().await(100, TimeUnit.MILLISECONDS));
+
+        clientNetworkEnvironment.close();
+        serverNetworkEnvironment.close();
     }
 
 }

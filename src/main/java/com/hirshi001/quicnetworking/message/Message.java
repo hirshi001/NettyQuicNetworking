@@ -31,7 +31,6 @@ public abstract class Message implements ByteBufSerializable {
 
     @Override
     public void writeBytes(ByteBuf out) {
-
     }
 
     @Override

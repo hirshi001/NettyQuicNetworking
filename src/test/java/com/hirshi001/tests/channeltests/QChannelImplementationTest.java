@@ -2,9 +2,9 @@ package com.hirshi001.tests.channeltests;
 
 import com.hirshi001.quicnetworking.channel.QChannel;
 import com.hirshi001.quicnetworking.connection.Connection;
-import com.hirshi001.quicnetworking.connectionfactory.ConnectionFactory;
 import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.BlockingPollableConnectionHandler;
-import com.hirshi001.tests.TestUtils;
+import com.hirshi001.tests.util.NetworkEnvironment;
+import com.hirshi001.tests.util.TestUtils;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.util.NetUtil;
@@ -33,10 +33,10 @@ public class QChannelImplementationTest {
     @Test
     public void QChannelImplTest() throws ExecutionException, InterruptedException, CertificateException {
         BlockingPollableConnectionHandler<Channels, Priority> serverConnectionHandler = new BlockingPollableConnectionHandler<>();
-        ConnectionFactory<Channels, Priority> serverConnectionFactory = TestUtils.newServer(Channels.class, Priority.class, new InetSocketAddress(9999), serverConnectionHandler);
+        NetworkEnvironment<Channels, Priority> serverNetworkEnvironment = TestUtils.newServer(Channels.class, Priority.class, new InetSocketAddress(9999), serverConnectionHandler);
 
         BlockingPollableConnectionHandler<Channels, Priority> clientConnectionHandler = new BlockingPollableConnectionHandler<>();
-        ConnectionFactory<Channels, Priority> clientConnectionFactory = TestUtils.newClient(Channels.class, Priority.class, new InetSocketAddress(NetUtil.LOCALHOST4, 9999), clientConnectionHandler);
+        NetworkEnvironment<Channels, Priority> clientNetworkEnvironment = TestUtils.newClient(Channels.class, Priority.class, new InetSocketAddress(NetUtil.LOCALHOST4, 9999), clientConnectionHandler);
 
         Connection<Channels, Priority> serverConnection = serverConnectionHandler.pollNewConnection(100, TimeUnit.MILLISECONDS);
 
@@ -70,9 +70,8 @@ public class QChannelImplementationTest {
         }));
 
 
-
-        assertTrue(serverConnection.close().await(100, TimeUnit.MILLISECONDS));
-        assertTrue(clientConnection.close().await(100, TimeUnit.MILLISECONDS));
+        clientNetworkEnvironment.close();
+        serverNetworkEnvironment.close();
     }
 
 }

@@ -34,7 +34,7 @@ public class DefaultMessageRegistry implements MessageRegistry {
     protected final Map<MessageHolder<?>, Integer> messageHolderIntMap;
 
 
-    private boolean sizeCheck = true;
+    private int bytesForSize = 4;
 
     /**
      * Creates a new DefaultMessageRegistry with the given name.
@@ -46,13 +46,16 @@ public class DefaultMessageRegistry implements MessageRegistry {
     }
 
     @Override
-    public void sizeCheck(boolean check) {
-        this.sizeCheck = check;
+    public void setBytesForSize(int bytesForSize) {
+        if(bytesForSize != 0 && bytesForSize != 1 && bytesForSize != 2 && bytesForSize != 4) {
+            throw new IllegalArgumentException("bytesForSize must be 0, 1, 2, or 4");
+        }
+        this.bytesForSize = bytesForSize;
     }
 
     @Override
-    public boolean sizeCheck() {
-        return sizeCheck;
+    public int getBytesForSize() {
+        return bytesForSize;
     }
 
     @Override

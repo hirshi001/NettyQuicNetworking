@@ -4,7 +4,8 @@ import com.hirshi001.quicnetworking.channel.QChannel;
 import com.hirshi001.quicnetworking.connection.Connection;
 import com.hirshi001.quicnetworking.connectionfactory.ConnectionFactory;
 import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.BlockingPollableConnectionHandler;
-import com.hirshi001.tests.TestUtils;
+import com.hirshi001.tests.util.NetworkEnvironment;
+import com.hirshi001.tests.util.TestUtils;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
@@ -43,10 +44,10 @@ public class SingleClientSingleChannelReliableTests {
 
 
         BlockingPollableConnectionHandler<Channels, Priority> serverConnectionHandler = new BlockingPollableConnectionHandler<>();
-        ConnectionFactory<Channels, Priority> serverConnectionFactory = TestUtils.newServer(Channels.class, Priority.class, new InetSocketAddress(9999), serverConnectionHandler);
+        NetworkEnvironment<Channels, Priority> serverNetworkEnvironment = TestUtils.newServer(Channels.class, Priority.class, new InetSocketAddress(9999), serverConnectionHandler);
 
         BlockingPollableConnectionHandler<Channels, Priority> clientConnectionHandler = new BlockingPollableConnectionHandler<>();
-        ConnectionFactory<Channels, Priority> clientConnectionFactory = TestUtils.newClient(Channels.class, Priority.class, new InetSocketAddress(NetUtil.LOCALHOST4, 9999), clientConnectionHandler);
+        NetworkEnvironment<Channels, Priority> clientNetworkEnvironment = TestUtils.newClient(Channels.class, Priority.class, new InetSocketAddress(NetUtil.LOCALHOST4, 9999), clientConnectionHandler);
 
         Connection<Channels, Priority> serverConnection = serverConnectionHandler.pollNewConnection(100, TimeUnit.MILLISECONDS);
         QChannel serverC1 = serverConnection.getChannel(Channels.C1);
@@ -87,14 +88,9 @@ public class SingleClientSingleChannelReliableTests {
 
         assertEquals(message2, received2.toString(Charset.defaultCharset()), "Second received message does not match sent message");
 
+        clientNetworkEnvironment.close();
+        serverNetworkEnvironment.close();
 
-        assertTrue(serverConnection.close().await(100, TimeUnit.MILLISECONDS));
-        assertTrue(clientConnection.close().await(100, TimeUnit.MILLISECONDS));
-
-        serverConnectionFactory.close().sync();
-        clientConnectionFactory.close().sync();
-
-        Thread.sleep(1000);
     }
 
     @Test
@@ -103,11 +99,10 @@ public class SingleClientSingleChannelReliableTests {
         final byte[] messageBytes = message.getBytes(Charset.defaultCharset());
 
         BlockingPollableConnectionHandler<Channels, Priority> serverConnectionHandler = new BlockingPollableConnectionHandler<>();
-        ConnectionFactory<Channels, Priority> serverConnectionFactory = TestUtils.newServer(Channels.class, Priority.class, new InetSocketAddress(9999), serverConnectionHandler);
-
+        NetworkEnvironment<Channels, Priority> serverNetworkEnvironment = TestUtils.newServer(Channels.class, Priority.class, new InetSocketAddress(9999), serverConnectionHandler);
 
         BlockingPollableConnectionHandler<Channels, Priority> clientConnectionHandler = new BlockingPollableConnectionHandler<>();
-        ConnectionFactory<Channels, Priority> clientConnectionFactory = TestUtils.newClient(Channels.class, Priority.class, new InetSocketAddress(NetUtil.LOCALHOST4, 9999), clientConnectionHandler);
+        NetworkEnvironment<Channels, Priority> clientNetworkEnvironment = TestUtils.newClient(Channels.class, Priority.class, new InetSocketAddress(NetUtil.LOCALHOST4, 9999), clientConnectionHandler);
 
         Connection<Channels, Priority> serverConnection = serverConnectionHandler.pollNewConnection(100, TimeUnit.MILLISECONDS);
         QChannel serverC1 = serverConnection.getChannel(Channels.C1);
@@ -147,11 +142,7 @@ public class SingleClientSingleChannelReliableTests {
 
         assertEquals(message2, received2.toString(Charset.defaultCharset()), "Second received message does not match sent message");
 
-
-        assertTrue(serverConnection.close().await(100, TimeUnit.MILLISECONDS));
-        assertTrue(clientConnection.close().await(100, TimeUnit.MILLISECONDS));
-
-        serverConnectionFactory.close().sync();
-        clientConnectionFactory.close().sync();
+        clientNetworkEnvironment.close();
+        serverNetworkEnvironment.close();
     }
 }

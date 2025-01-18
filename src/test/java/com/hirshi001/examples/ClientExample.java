@@ -8,7 +8,8 @@ import com.hirshi001.quicnetworking.connection.Connection;
 import com.hirshi001.quicnetworking.connectionfactory.ConnectionFactory;
 import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.BlockingPollableConnectionHandler;
 import com.hirshi001.quicnetworking.util.ByteBufferUtil;
-import com.hirshi001.tests.TestUtils;
+import com.hirshi001.tests.util.NetworkEnvironment;
+import com.hirshi001.tests.util.TestUtils;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
@@ -30,8 +31,9 @@ public class ClientExample {
         Scanner scanner = new Scanner(System.in);
         name = scanner.nextLine();
 
+
         BlockingPollableConnectionHandler<Channels, Priority> connectionHandler = new BlockingPollableConnectionHandler<>();
-        ConnectionFactory<Channels, Priority> connectionFactory = TestUtils.newClient(Channels.class, Priority.class, new InetSocketAddress(NetUtil.LOCALHOST4, 9999), connectionHandler);
+        NetworkEnvironment<Channels, Priority> networkEnvironment = TestUtils.newClient(Channels.class, Priority.class, new InetSocketAddress(NetUtil.LOCALHOST4, 9999), connectionHandler);
 
         Connection<Channels, Priority> newConnection = connectionHandler.pollNewConnection();
 
@@ -40,8 +42,8 @@ public class ClientExample {
 
         textChannelThread.join();
         System.out.println("Client exiting");
-        newConnection.close().sync();
-        connectionFactory.close().sync();
+
+        networkEnvironment.close();
     }
 
     static class TextChannelThread extends Thread {

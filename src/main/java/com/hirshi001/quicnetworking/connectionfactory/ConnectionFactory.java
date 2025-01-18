@@ -5,6 +5,9 @@ import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.Connecti
 import io.netty.channel.*;
 import io.netty.incubator.codec.quic.QuicChannel;
 import io.netty.incubator.codec.quic.QuicStreamChannel;
+import io.netty.util.concurrent.DefaultPromise;
+import io.netty.util.concurrent.Promise;
+import io.netty.util.concurrent.PromiseCombiner;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -17,10 +20,11 @@ public class ConnectionFactory<Channels extends Enum<Channels>, Priority extends
     private final Class<Priority> priorityClass;
     private final Map<ChannelId, ConnectionImpl<Channels, Priority>> connectionMap;
 
-    private Channel channel;
+    private final EventLoopGroup service;
 
-    public ConnectionFactory(ConnectionHandler<Channels, Priority> connectionHandler, Class<Channels> channelsClass, Class<Priority> priorityClass) {
+    public ConnectionFactory(ConnectionHandler<Channels, Priority> connectionHandler, EventLoopGroup service, Class<Channels> channelsClass, Class<Priority> priorityClass) {
         this.connectionHandler = connectionHandler;
+        this.service = service;
         this.channelsClass = channelsClass;
         this.priorityClass = priorityClass;
         this.connectionMap = new ConcurrentHashMap<>();
@@ -65,28 +69,16 @@ public class ConnectionFactory<Channels extends Enum<Channels>, Priority extends
         };
     }
 
-    public void setChannel(Channel channel) {
-        assert this.channel == null;
-        this.channel = channel;
+    @SuppressWarnings("deprecation")
+    public Promise<?> closeAllConnections(){
+        PromiseCombiner promiseCombiner = new PromiseCombiner();
+        for (ConnectionImpl<Channels, Priority> connection : connectionMap.values()) {
+            promiseCombiner.add(connection.close());
+        }
+        Promise<Void> future = new DefaultPromise<>(service.next());
+        promiseCombiner.finish(future);
+
+        return future;
+
     }
-
-    public Channel channel() {
-        return channel;
-    }
-
-    public ChannelFuture close() {
-        return channel.close();
-    }
-
-    public ChannelFuture close(ChannelPromise promise) {
-        return channel.close(promise);
-    }
-
-    public ChannelFuture closeFuture() {
-        return channel.closeFuture();
-    }
-
-
-
-
 }

@@ -19,7 +19,6 @@ package com.hirshi001.quicnetworking.message.defaultmessages.arraymessages;
 import com.hirshi001.quicnetworking.message.Message;
 import com.hirshi001.quicnetworking.util.ByteBufferUtil;
 import io.netty.buffer.ByteBuf;
-import io.netty.buffer.ByteBufUtil;
 
 import java.util.Arrays;
 

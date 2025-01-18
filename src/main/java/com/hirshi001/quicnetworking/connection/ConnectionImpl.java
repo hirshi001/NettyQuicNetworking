@@ -3,10 +3,12 @@ package com.hirshi001.quicnetworking.connection;
 import com.hirshi001.quicnetworking.channel.QChannelImpl;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
-import io.netty.channel.*;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelHandler;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.incubator.codec.quic.QuicChannel;
 import io.netty.incubator.codec.quic.QuicStreamChannel;
-import io.netty.util.CharsetUtil;
 
 
 public class ConnectionImpl<Channels extends Enum<Channels>, Priority extends Enum<Priority>> implements Connection<Channels, Priority> {

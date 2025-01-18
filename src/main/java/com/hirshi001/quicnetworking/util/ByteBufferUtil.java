@@ -9,7 +9,7 @@ import java.nio.charset.StandardCharsets;
 public class ByteBufferUtil {
 
 
-    private static final Charset DEFAULT_CHARSET = StandardCharsets.UTF_16;
+    private static final Charset DEFAULT_CHARSET = StandardCharsets.UTF_8;
 
     public ByteBufferUtil() {
     }

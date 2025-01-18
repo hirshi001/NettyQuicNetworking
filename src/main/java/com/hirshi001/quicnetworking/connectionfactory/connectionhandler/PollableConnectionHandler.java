@@ -1,10 +1,6 @@
 package com.hirshi001.quicnetworking.connectionfactory.connectionhandler;
 
-import com.hirshi001.quicnetworking.connection.IChannelsEnum;
 import com.hirshi001.quicnetworking.connection.Connection;
-import com.hirshi001.quicnetworking.connection.ConnectionImpl;
-import io.netty.incubator.codec.quic.QuicChannel;
-import net.luminis.quic.QuicConnection;
 
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;

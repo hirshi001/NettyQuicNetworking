@@ -39,7 +39,7 @@ public interface MessageRegistry {
      * @param supplier     the supplier to create the message
      * @param messageClass the class of the message
      * @param id           the id to register the message with
-     * @param <T>          the type of the packet
+     * @param <T>          the type of the message
      * @return this for chaining
      */
     @SuppressWarnings("UnusedReturnValue")
@@ -54,7 +54,7 @@ public interface MessageRegistry {
      * @param handler      the handler to handle the message, null for no handler
      * @param messageClass the class of the message
      * @param id           the id to register the message with
-     * @param <T>          the type of the packet
+     * @param <T>          the type of the message
      * @return this for chaining
      */
     @SuppressWarnings("UnusedReturnValue")
@@ -63,26 +63,24 @@ public interface MessageRegistry {
     }
 
     /**
-     * Sets whether the codec should encode the size of the packet before the packet itself.
-     *
-     * @param check Whether the codec should encode the size of the packet before the packet itself.
+     * Sets the number of bytes to use for the size of the message. Can be 0, 1, 2, or 4.
+     * @param bytesForSize the number of bytes to use for the size of the message.
      */
-    void sizeCheck(boolean check);
+    void setBytesForSize(int bytesForSize);
 
     /**
-     * Whether the codec should encode the size of the packet before the packet itself.
-     * Default is typically true
-     *
-     * @return Whether the codec should encode the size of the packet before the packet itself.
+     * Gets the number of bytes to use for the size of the message.
+     * Gaurenteed to be 0, 1, 2, or 4.
+     * @return the number of bytes to use for the size of the message.
      */
-    boolean sizeCheck();
+    int getBytesForSize();
 
 
     /**
      * Registers a message with the given id.
      *
      * @param holder the message holder to register
-     * @param id     the id to register the packet with
+     * @param id     the id to register the message with
      * @return this
      */
     MessageRegistry register(MessageHolder<?> holder, int id);

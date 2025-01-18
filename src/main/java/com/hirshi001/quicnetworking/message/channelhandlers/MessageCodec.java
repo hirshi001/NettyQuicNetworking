@@ -20,9 +20,9 @@ public class MessageCodec extends ByteToMessageCodec<Message> {
 
     @Override
     @SuppressWarnings("unchecked")
-    protected void decode(ChannelHandlerContext ctx, ByteBuf in, List out) throws Exception {
+    public void decode(ChannelHandlerContext ctx, ByteBuf in, List out) throws Exception {
 
-        while (true) {
+        while (in.readableBytes() > 0) {
             in.markReaderIndex();
             if (in.readableBytes() < 4) {
                 return;
@@ -38,8 +38,20 @@ public class MessageCodec extends ByteToMessageCodec<Message> {
 
             Message msg = holder.getMessage();
 
-            if (messageRegistry.sizeCheck()) {
-                int size = ByteBufferUtil.readVarInt(in);
+            int bytesForSize = messageRegistry.getBytesForSize();
+            if (bytesForSize > 0) {
+                if (in.readableBytes() < bytesForSize) {
+                    in.resetReaderIndex();
+                    return;
+                }
+
+                int size = switch (bytesForSize) {
+                    case 1 -> in.readUnsignedByte();
+                    case 2 -> in.readUnsignedShort();
+                    case 4 -> in.readInt();
+                    default -> throw new IllegalStateException("Invalid bytes for size: " + bytesForSize);
+                };
+
                 if(in.readableBytes() < size){
                     in.resetReaderIndex();
                     return;
@@ -62,22 +74,41 @@ public class MessageCodec extends ByteToMessageCodec<Message> {
     }
 
     @Override
-    protected void encode(ChannelHandlerContext ctx, Message msg, ByteBuf out) throws Exception {
+    public void encode(ChannelHandlerContext ctx, Message msg, ByteBuf out) throws Exception {
         int msgId = messageRegistry.getId(msg.getClass());
 
         out.writeInt(msgId);
-        if(messageRegistry.sizeCheck()) {
-            out.ensureWritable(4);
-            int writerIndex = out.writerIndex();
-            out.writerIndex(writerIndex + 4);
+
+
+        int bytesForSize = messageRegistry.getBytesForSize();
+        if(bytesForSize > 0) {
+            int startIndex = out.writerIndex();
+
+            out.ensureWritable(bytesForSize);
+            out.writerIndex(startIndex + bytesForSize);
 
             msg.writeBytes(out);
 
             // write the size of the message
-            int size = out.writerIndex() - writerIndex - 4;
+            int size = out.writerIndex() - startIndex - bytesForSize;
+
+
             out.markWriterIndex();
-            out.writerIndex(writerIndex);
-            ByteBufferUtil.writeVarInt(out, size);
+            out.writerIndex(startIndex);
+            switch(bytesForSize) {
+                case 1:
+                    out.writeByte(size);
+                    break;
+                case 2:
+                    out.writeShort(size);
+                    break;
+                case 4:
+                    out.writeInt(size);
+                    break;
+                default:
+                    // should never happen
+                    throw new IllegalStateException("Invalid bytes for size: " + bytesForSize);
+            }
             out.resetWriterIndex();
         }else {
             msg.writeBytes(out);

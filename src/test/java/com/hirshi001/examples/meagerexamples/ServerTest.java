@@ -4,10 +4,11 @@ import com.hirshi001.quicnetworking.channel.QChannel;
 import com.hirshi001.quicnetworking.connection.Connection;
 import com.hirshi001.quicnetworking.connectionfactory.ConnectionFactory;
 import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.BlockingPollableConnectionHandler;
+import com.hirshi001.tests.util.NetworkEnvironment;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.*;
 import io.netty.util.CharsetUtil;
-import com.hirshi001.tests.TestUtils;
+import com.hirshi001.tests.util.TestUtils;
 
 import java.net.InetSocketAddress;
 import java.security.cert.CertificateException;
@@ -31,7 +32,8 @@ public class ServerTest {
     public static void main(String[] args) throws CertificateException, ExecutionException, InterruptedException {
         BlockingPollableConnectionHandler<Channels, Priority> connectionHandler = new BlockingPollableConnectionHandler<>();
 
-        ConnectionFactory<Channels, Priority> connectionFactory = TestUtils.newServer(Channels.class, Priority.class, new InetSocketAddress(9999), connectionHandler);
+        NetworkEnvironment<Channels, Priority> networkEnvironment = TestUtils.newServer(Channels.class, Priority.class, new InetSocketAddress(9999), connectionHandler);
+
         while (true) {
             System.out.println("Waiting for new connection");
             Connection<Channels, Priority> newConnection = connectionHandler.pollNewConnection();
@@ -64,7 +66,7 @@ public class ServerTest {
 
         }
 
-        // channel.closeFuture().sync();
+        // networkEnvironment.close();
     }
 
 

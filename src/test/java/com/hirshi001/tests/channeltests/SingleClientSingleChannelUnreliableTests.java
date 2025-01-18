@@ -4,7 +4,8 @@ import com.hirshi001.quicnetworking.channel.QChannel;
 import com.hirshi001.quicnetworking.connection.Connection;
 import com.hirshi001.quicnetworking.connectionfactory.ConnectionFactory;
 import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.BlockingPollableConnectionHandler;
-import com.hirshi001.tests.TestUtils;
+import com.hirshi001.tests.util.NetworkEnvironment;
+import com.hirshi001.tests.util.TestUtils;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
@@ -36,12 +37,11 @@ public class SingleClientSingleChannelUnreliableTests {
         final String message = "Hello World from Server";
         final byte[] messageBytes = message.getBytes(Charset.defaultCharset());
 
-
         BlockingPollableConnectionHandler<Channels, Priority> serverConnectionHandler = new BlockingPollableConnectionHandler<>();
-        ConnectionFactory<Channels, Priority> serverConnectionFactory = TestUtils.newServer(Channels.class, Priority.class, new InetSocketAddress(9999), serverConnectionHandler);
+        NetworkEnvironment<Channels, Priority> serverNetworkEnvironment = TestUtils.newServer(Channels.class, Priority.class, new InetSocketAddress(9999), serverConnectionHandler);
 
         BlockingPollableConnectionHandler<Channels, Priority> clientConnectionHandler = new BlockingPollableConnectionHandler<>();
-        ConnectionFactory<Channels, Priority> clientConnectionFactory = TestUtils.newClient(Channels.class, Priority.class, new InetSocketAddress(NetUtil.LOCALHOST4, 9999), clientConnectionHandler);
+        NetworkEnvironment<Channels, Priority> clientNetworkEnvironment = TestUtils.newClient(Channels.class, Priority.class, new InetSocketAddress(NetUtil.LOCALHOST4, 9999), clientConnectionHandler);
 
         Connection<Channels, Priority> serverConnection = serverConnectionHandler.pollNewConnection(100, TimeUnit.MILLISECONDS);
 
@@ -64,10 +64,11 @@ public class SingleClientSingleChannelUnreliableTests {
         ByteBuf received = receivedBuffer.get();
 
         assertEquals(message, received.toString(Charset.defaultCharset()), "Received message does not match sent message");
+        received.release();
 
 
-        assertTrue(serverConnection.close().await(100, TimeUnit.MILLISECONDS));
-        assertTrue(clientConnection.close().await(100, TimeUnit.MILLISECONDS));
+        clientNetworkEnvironment.close();
+        serverNetworkEnvironment.close();
     }
 
 
@@ -76,12 +77,11 @@ public class SingleClientSingleChannelUnreliableTests {
         final String message = "Hello World from Server";
         final byte[] messageBytes = message.getBytes(Charset.defaultCharset());
 
-
         BlockingPollableConnectionHandler<Channels, Priority> serverConnectionHandler = new BlockingPollableConnectionHandler<>();
-        ConnectionFactory<Channels, Priority> serverConnectionFactory = TestUtils.newServer(Channels.class, Priority.class, new InetSocketAddress(9999), serverConnectionHandler);
+        NetworkEnvironment<Channels, Priority> serverNetworkEnvironment = TestUtils.newServer(Channels.class, Priority.class, new InetSocketAddress(9999), serverConnectionHandler);
 
         BlockingPollableConnectionHandler<Channels, Priority> clientConnectionHandler = new BlockingPollableConnectionHandler<>();
-        ConnectionFactory<Channels, Priority> clientConnectionFactory = TestUtils.newClient(Channels.class, Priority.class, new InetSocketAddress(NetUtil.LOCALHOST4, 9999), clientConnectionHandler);
+        NetworkEnvironment<Channels, Priority> clientNetworkEnvironment = TestUtils.newClient(Channels.class, Priority.class, new InetSocketAddress(NetUtil.LOCALHOST4, 9999), clientConnectionHandler);
 
         Connection<Channels, Priority> serverConnection = serverConnectionHandler.pollNewConnection(100, TimeUnit.MILLISECONDS);
         QChannel serverC1 = serverConnection.getChannel(Channels.C1);
@@ -107,13 +107,13 @@ public class SingleClientSingleChannelUnreliableTests {
         serverC1.writeAndFlush(Unpooled.copiedBuffer(messageBytes2)).sync();
 
         assertTrue(receivedBuffer.await(100, TimeUnit.MILLISECONDS), "Message not received in time");
-        ByteBuf received2 = receivedBuffer.get();
+        ByteBuf received = receivedBuffer.get();
 
-        assertEquals(message2, received2.toString(Charset.defaultCharset()), "Second received message does not match sent message");
+        assertEquals(message2, received.toString(Charset.defaultCharset()), "Second received message does not match sent message");
+        received.release();
 
-
-        assertTrue(serverConnection.close().await(100, TimeUnit.MILLISECONDS));
-        assertTrue(clientConnection.close().await(100, TimeUnit.MILLISECONDS));
+        clientNetworkEnvironment.close();
+        serverNetworkEnvironment.close();
     }
 
     @Test
@@ -122,11 +122,10 @@ public class SingleClientSingleChannelUnreliableTests {
         final byte[] messageBytes = message.getBytes(Charset.defaultCharset());
 
         BlockingPollableConnectionHandler<Channels, Priority> serverConnectionHandler = new BlockingPollableConnectionHandler<>();
-        ConnectionFactory<Channels, Priority> serverConnectionFactory = TestUtils.newServer(Channels.class, Priority.class, new InetSocketAddress(9999), serverConnectionHandler);
-
+        NetworkEnvironment<Channels, Priority> serverNetworkEnvironment = TestUtils.newServer(Channels.class, Priority.class, new InetSocketAddress(9999), serverConnectionHandler);
 
         BlockingPollableConnectionHandler<Channels, Priority> clientConnectionHandler = new BlockingPollableConnectionHandler<>();
-        ConnectionFactory<Channels, Priority> clientConnectionFactory = TestUtils.newClient(Channels.class, Priority.class, new InetSocketAddress(NetUtil.LOCALHOST4, 9999), clientConnectionHandler);
+        NetworkEnvironment<Channels, Priority> clientNetworkEnvironment = TestUtils.newClient(Channels.class, Priority.class, new InetSocketAddress(NetUtil.LOCALHOST4, 9999), clientConnectionHandler);
 
         Connection<Channels, Priority> serverConnection = serverConnectionHandler.pollNewConnection(100, TimeUnit.MILLISECONDS);
         QChannel serverC1 = serverConnection.getChannel(Channels.C1);
@@ -149,10 +148,10 @@ public class SingleClientSingleChannelUnreliableTests {
         ByteBuf received = receivedBuffer.get();
 
         assertEquals(message, received.toString(Charset.defaultCharset()), "Received message does not match sent message");
+        received.release();
 
-
-        assertTrue(serverConnection.close().await(100, TimeUnit.MILLISECONDS));
-        assertTrue(clientConnection.close().await(100, TimeUnit.MILLISECONDS));
+        clientNetworkEnvironment.close();
+        serverNetworkEnvironment.close();
     }
 
     @Test
@@ -161,11 +160,10 @@ public class SingleClientSingleChannelUnreliableTests {
         final byte[] messageBytes = message.getBytes(Charset.defaultCharset());
 
         BlockingPollableConnectionHandler<Channels, Priority> serverConnectionHandler = new BlockingPollableConnectionHandler<>();
-        ConnectionFactory<Channels, Priority> serverConnectionFactory = TestUtils.newServer(Channels.class, Priority.class, new InetSocketAddress(9999), serverConnectionHandler);
-
+        NetworkEnvironment<Channels, Priority> serverNetworkEnvironment = TestUtils.newServer(Channels.class, Priority.class, new InetSocketAddress(9999), serverConnectionHandler);
 
         BlockingPollableConnectionHandler<Channels, Priority> clientConnectionHandler = new BlockingPollableConnectionHandler<>();
-        ConnectionFactory<Channels, Priority> clientConnectionFactory = TestUtils.newClient(Channels.class, Priority.class, new InetSocketAddress(NetUtil.LOCALHOST4, 9999), clientConnectionHandler);
+        NetworkEnvironment<Channels, Priority> clientNetworkEnvironment = TestUtils.newClient(Channels.class, Priority.class, new InetSocketAddress(NetUtil.LOCALHOST4, 9999), clientConnectionHandler);
 
         Connection<Channels, Priority> serverConnection = serverConnectionHandler.pollNewConnection(100, TimeUnit.MILLISECONDS);
         QChannel serverC1 = serverConnection.getChannel(Channels.C1);
@@ -192,12 +190,12 @@ public class SingleClientSingleChannelUnreliableTests {
         clientC1.writeAndFlush(Unpooled.copiedBuffer(messageBytes2)).sync();
 
         assertTrue(receivedBuffer.await(100, TimeUnit.MILLISECONDS), "Message not received in time");
-        ByteBuf received2 = receivedBuffer.get();
+        ByteBuf received = receivedBuffer.get();
 
-        assertEquals(message2, received2.toString(Charset.defaultCharset()), "Second received message does not match sent message");
+        assertEquals(message2, received.toString(Charset.defaultCharset()), "Second received message does not match sent message");
+        received.release();
 
-
-        assertTrue(serverConnection.close().await(100, TimeUnit.MILLISECONDS));
-        assertTrue(clientConnection.close().await(100, TimeUnit.MILLISECONDS));
+        clientNetworkEnvironment.close();
+        serverNetworkEnvironment.close();
     }
 }

@@ -6,6 +6,7 @@ import static com.hirshi001.examples.Shared.Priority;
 import com.hirshi001.quicnetworking.channel.QChannel;
 import com.hirshi001.quicnetworking.connection.Connection;
 import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.BlockingPollableConnectionHandler;
+import com.hirshi001.quicnetworking.helper.QuicNetworkingEnvironment;
 import com.hirshi001.quicnetworking.util.ByteBufferUtil;
 import com.hirshi001.tests.util.NetworkEnvironment;
 import com.hirshi001.tests.util.TestUtils;
@@ -23,7 +24,7 @@ public class ClientExample {
 
     public static String name;
 
-    public static void main(String[] args) throws ExecutionException, InterruptedException {
+    public static void main(String[] args) throws Exception {
 
         System.out.println("Client Starting");
         System.out.println("What is your name?");
@@ -32,7 +33,7 @@ public class ClientExample {
 
 
         BlockingPollableConnectionHandler<Channels, Priority> connectionHandler = new BlockingPollableConnectionHandler<>();
-        NetworkEnvironment<Channels, Priority> networkEnvironment = TestUtils.newClient(Channels.class, Priority.class, new InetSocketAddress(NetUtil.LOCALHOST4, 9999), connectionHandler);
+        QuicNetworkingEnvironment<Channels, Priority> networkEnvironment = TestUtils.newClient(Channels.class, Priority.class, new InetSocketAddress(NetUtil.LOCALHOST4, 9999), connectionHandler);
 
         Connection<Channels, Priority> newConnection = connectionHandler.pollNewConnection();
 
@@ -42,7 +43,8 @@ public class ClientExample {
         textChannelThread.join();
         System.out.println("Client exiting");
 
-        networkEnvironment.close();
+        networkEnvironment.close().await();
+        networkEnvironment.shutdownGracefully().await();
     }
 
     static class TextChannelThread extends Thread {

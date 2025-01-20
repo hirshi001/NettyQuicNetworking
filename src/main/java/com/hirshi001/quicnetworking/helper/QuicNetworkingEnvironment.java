@@ -23,13 +23,26 @@ public class QuicNetworkingEnvironment<Channels extends Enum<Channels>, Priority
         this.connectionFactory = new ConnectionFactory<>(connectionHandler, eventLoopGroup, channelsClass, priorityClass);
     }
 
-    public Promise<QuicNetworkingEnvironment<Channels, Priority>> closeServer() throws InterruptedException
-    {
+    public Promise<QuicNetworkingEnvironment<Channels, Priority>> close() throws InterruptedException {
         EventLoop eventLoop = eventLoopGroup.next();
-
-        PromiseCombiner promiseCombiner = new PromiseCombiner(eventLoop);
-        Promise<Void> combinerFinish = eventLoop.newPromise();
         Promise<QuicNetworkingEnvironment<Channels, Priority>> promise = eventLoop.newPromise();
+        if (eventLoop.inEventLoop())
+            close0(eventLoop, promise);
+        else
+            eventLoop.submit(() -> {
+                try {
+                    close0(eventLoop, promise);
+                } catch (InterruptedException e) {
+                    promise.setFailure(e);
+                }
+            });
+
+        return promise;
+    }
+
+    private void close0(EventLoop eventLoop, Promise<QuicNetworkingEnvironment<Channels, Priority>> promise) throws InterruptedException {
+        Promise<Void> combinerFinish = eventLoop.newPromise();
+        PromiseCombiner promiseCombiner = new PromiseCombiner(eventLoop);
 
         combinerFinish.addListener(future -> promise.setSuccess(this));
 
@@ -38,7 +51,6 @@ public class QuicNetworkingEnvironment<Channels extends Enum<Channels>, Priority
 
         promiseCombiner.finish(combinerFinish);
 
-        return promise;
     }
 
     public Future<?> shutdownGracefully() throws InterruptedException {
@@ -47,6 +59,10 @@ public class QuicNetworkingEnvironment<Channels extends Enum<Channels>, Priority
 
     public Future<?> shutdownGracefully(long quietPeriod, long timeout, TimeUnit unit) throws InterruptedException {
         return eventLoopGroup.shutdownGracefully(quietPeriod, timeout, unit);
+    }
+
+    public EventLoopGroup getEventLoopGroup() {
+        return eventLoopGroup;
     }
 
 }

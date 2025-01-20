@@ -2,6 +2,10 @@ package com.hirshi001.tests.util;
 
 import com.hirshi001.quicnetworking.connectionfactory.ConnectionFactory;
 import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.ConnectionHandler;
+import com.hirshi001.quicnetworking.helper.ClientConfig;
+import com.hirshi001.quicnetworking.helper.QuicNetworkingEnvironment;
+import com.hirshi001.quicnetworking.helper.QuicNetworkingHelper;
+import com.hirshi001.quicnetworking.helper.ServerConfig;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandler;
@@ -19,84 +23,34 @@ public class TestUtils {
 
 
 
-    public static <Channels extends Enum<Channels>, Priority extends Enum<Priority>> NetworkEnvironment<Channels, Priority> newServer(Class<Channels> channelsClass, Class<Priority> priorityClass, SocketAddress address, ConnectionHandler<Channels, Priority> connectionHandler) throws InterruptedException, ExecutionException, CertificateException {
+    public static <Channels extends Enum<Channels>, Priority extends Enum<Priority>> QuicNetworkingEnvironment<Channels, Priority> newServer(Class<Channels> channelsClass, Class<Priority> priorityClass, SocketAddress address, ConnectionHandler<Channels, Priority> connectionHandler) throws Exception {
         SelfSignedCertificate selfSignedCertificate = new SelfSignedCertificate();
         QuicSslContext context = QuicSslContextBuilder.forServer(
                         selfSignedCertificate.privateKey(), null, selfSignedCertificate.certificate())
                 .applicationProtocols("test")
                 .build();
 
+        ServerConfig serverConfig = new ServerConfig();
+        serverConfig.setSslContext(context);
+        serverConfig.setTokenHandler(InsecureQuicTokenHandler.INSTANCE);
+        serverConfig.setEventLoopGroup(new NioEventLoopGroup());
 
-
-        NioEventLoopGroup group = new NioEventLoopGroup();
-
-        ConnectionFactory<Channels, Priority> connectionFactory = new ConnectionFactory<>(connectionHandler, group, channelsClass, priorityClass);
-
-        ChannelHandler codec = new QuicServerCodecBuilder()
-                // Configure some limits for the maximal number of streams (and the data) that we want to handle.
-                .initialMaxData(10000000)
-                // unidirectional streams
-                .initialMaxStreamsUnidirectional(100)
-                .initialMaxStreamDataUnidirectional(1000000)
-                .datagram(1024 * 16, 1024 * 16)
-
-                // Setup a token handler. In a production system you would want to implement and provide your
-                // custom one.
-                .tokenHandler(InsecureQuicTokenHandler.INSTANCE)
-                .sslContext(context)
-                // ChannelHandler that is added into QuicChannel pipeline.
-                .handler(connectionFactory.handler())
-                .streamHandler(connectionFactory.streamHandler())
-                .build();
-
-        Bootstrap bs = new Bootstrap();
-        Channel channel = bs.group(group)
-                .channel(NioDatagramChannel.class)
-                .handler(codec)
-                .bind(address).sync().channel();
-
-
-        return new NetworkEnvironment<>(group, channel, connectionFactory);
+        return QuicNetworkingHelper.createServer(serverConfig, address, connectionHandler, channelsClass, priorityClass);
     }
 
 
-    public static <Channels extends Enum<Channels>, Priority extends Enum<Priority>> NetworkEnvironment<Channels, Priority> newClient(Class<Channels> channelsClass, Class<Priority> priorityClass, SocketAddress remoteAddress, ConnectionHandler<Channels, Priority> connectionHandler) throws InterruptedException, ExecutionException {
+    public static <Channels extends Enum<Channels>, Priority extends Enum<Priority>> QuicNetworkingEnvironment<Channels, Priority> newClient(Class<Channels> channelsClass, Class<Priority> priorityClass, SocketAddress remoteAddress, ConnectionHandler<Channels, Priority> connectionHandler) throws Exception {
         QuicSslContext context = QuicSslContextBuilder
                 .forClient()
                 .trustManager(InsecureTrustManagerFactory.INSTANCE)
                 .applicationProtocols("test")
                 .build();
-        NioEventLoopGroup group = new NioEventLoopGroup(1);
 
-        ChannelHandler codec = new QuicClientCodecBuilder()
-                .sslContext(context)
-                // Configure some limits for the maximal number of streams (and the data) that we want to handle.
-                .initialMaxData(10000000)
-                // unidirectional streams
-                .initialMaxStreamsUnidirectional(100)
-                .initialMaxStreamDataUnidirectional(1000000)
+        ClientConfig clientConfig = new ClientConfig();
+        clientConfig.setSslContext(context);
+        clientConfig.setEventLoopGroup(new NioEventLoopGroup());
 
-                .datagram(1024 * 16, 1024 * 16)
-                .build();
-
-        Bootstrap bs = new Bootstrap();
-        Channel channel = bs.group(group)
-                .channel(NioDatagramChannel.class)
-                .handler(codec)
-                .bind(0).sync().channel();
-
-        ConnectionFactory<Channels, Priority> connectionFactory = new ConnectionFactory<>(connectionHandler, group, channelsClass, priorityClass);
-
-        QuicChannel quicChannel = QuicChannel.newBootstrap(channel)
-                .handler(connectionFactory.handler())
-                .streamHandler(connectionFactory.streamHandler())
-                .remoteAddress(remoteAddress)
-                .connect()
-                .get();
-
-
-        return new NetworkEnvironment<>(group, channel, connectionFactory);
-
+        return QuicNetworkingHelper.createClient(clientConfig, remoteAddress, connectionHandler, channelsClass, priorityClass);
     }
 
 }

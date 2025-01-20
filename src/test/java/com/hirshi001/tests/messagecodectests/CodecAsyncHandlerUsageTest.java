@@ -3,6 +3,7 @@ package com.hirshi001.tests.messagecodectests;
 import com.hirshi001.quicnetworking.channel.QChannel;
 import com.hirshi001.quicnetworking.connection.Connection;
 import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.BlockingPollableConnectionHandler;
+import com.hirshi001.quicnetworking.helper.QuicNetworkingEnvironment;
 import com.hirshi001.quicnetworking.message.channelhandlers.AsyncMessageHandler;
 import com.hirshi001.quicnetworking.message.channelhandlers.MessageCodec;
 import com.hirshi001.quicnetworking.message.channelhandlers.MessageContext;
@@ -43,30 +44,30 @@ public class CodecAsyncHandlerUsageTest {
     }
 
     @Test
-    public void reliableCodecAsyncHandlerUsageTest() throws ExecutionException, InterruptedException, CertificateException {
+    public void reliableCodecAsyncHandlerUsageTest() throws Exception {
         codecAsyncHandlerUsageTest(QChannel.Reliability.RELIABLE);
     }
 
 
     @Test
-    public void unreliableCodecAsyncHandlerUsageTest() throws ExecutionException, InterruptedException, CertificateException {
+    public void unreliableCodecAsyncHandlerUsageTest() throws Exception {
         codecAsyncHandlerUsageTest(QChannel.Reliability.UNRELIABLE);
     }
 
 
-    private void codecAsyncHandlerUsageTest(QChannel.Reliability reliability) throws CertificateException, ExecutionException, InterruptedException {
+    private void codecAsyncHandlerUsageTest(QChannel.Reliability reliability) throws Exception {
         final String message = "Hello World from Server";
         final int[] messageArray = {1, 2, 3, 4, 5};
 
         BlockingPollableConnectionHandler<Channels, Priority> serverConnectionHandler = new BlockingPollableConnectionHandler<>();
-        NetworkEnvironment<Channels, Priority> serverNetworkEnvironment = TestUtils.newServer(Channels.class, Priority.class, new InetSocketAddress(9999), serverConnectionHandler);
+        QuicNetworkingEnvironment<Channels, Priority> serverNetworkEnvironment = TestUtils.newServer(Channels.class, Priority.class, new InetSocketAddress(9999), serverConnectionHandler);
 
         BlockingPollableConnectionHandler<Channels, Priority> clientConnectionHandler = new BlockingPollableConnectionHandler<>();
-        NetworkEnvironment<Channels, Priority> clientNetworkEnvironment = TestUtils.newClient(Channels.class, Priority.class, new InetSocketAddress(NetUtil.LOCALHOST4, 9999), clientConnectionHandler);
+        QuicNetworkingEnvironment<Channels, Priority> clientNetworkEnvironment = TestUtils.newClient(Channels.class, Priority.class, new InetSocketAddress(NetUtil.LOCALHOST4, 9999), clientConnectionHandler);
 
         MessageRegistry serverRegistry = new DefaultMessageRegistry();
-        final Promise<StringMessage> serverReceivedStringMessage = serverNetworkEnvironment.eventLoopGroup.next().newPromise();
-        final Promise<IntegerArrayMessage> serverReceivedArrayMessage = serverNetworkEnvironment.eventLoopGroup.next().newPromise();
+        final Promise<StringMessage> serverReceivedStringMessage = serverNetworkEnvironment.getEventLoopGroup().next().newPromise();
+        final Promise<IntegerArrayMessage> serverReceivedArrayMessage = serverNetworkEnvironment.getEventLoopGroup().next().newPromise();
         serverRegistry.register(StringMessage::new, (context, message1) -> {
             serverReceivedStringMessage.setSuccess(message1);
         }, StringMessage.class, 0);
@@ -75,8 +76,8 @@ public class CodecAsyncHandlerUsageTest {
         }, IntegerArrayMessage.class, 1);
 
         MessageRegistry clientRegistry = new DefaultMessageRegistry();
-        final Promise<StringMessage> clientReceivedStringMessage = clientNetworkEnvironment.eventLoopGroup.next().newPromise();
-        final Promise<IntegerArrayMessage> clientReceivedArrayMessage = clientNetworkEnvironment.eventLoopGroup.next().newPromise();
+        final Promise<StringMessage> clientReceivedStringMessage = clientNetworkEnvironment.getEventLoopGroup().next().newPromise();
+        final Promise<IntegerArrayMessage> clientReceivedArrayMessage = clientNetworkEnvironment.getEventLoopGroup().next().newPromise();
         clientRegistry.register(StringMessage::new, (context, message1) -> {
             clientReceivedStringMessage.setSuccess(message1);
         }, StringMessage.class, 0);
@@ -141,8 +142,11 @@ public class CodecAsyncHandlerUsageTest {
         clientC1.close().sync();
         serverC1.close().sync();
 
-        clientNetworkEnvironment.close();
-        serverNetworkEnvironment.close();
+        clientNetworkEnvironment.close().await();
+        serverNetworkEnvironment.close().await();
+
+        clientNetworkEnvironment.shutdownGracefully().await();
+        serverNetworkEnvironment.shutdownGracefully().await();
 
 
     }

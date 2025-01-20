@@ -5,31 +5,28 @@ import static com.hirshi001.examples.Shared.*;
 import com.hirshi001.quicnetworking.channel.QChannel;
 import com.hirshi001.quicnetworking.connection.Connection;
 import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.BlockingPollableConnectionHandler;
+import com.hirshi001.quicnetworking.helper.QuicNetworkingEnvironment;
 import com.hirshi001.quicnetworking.util.ByteBufferUtil;
-import com.hirshi001.tests.util.NetworkEnvironment;
 import com.hirshi001.tests.util.TestUtils;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 
-import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.security.cert.CertificateException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 public class ServerExample {
 
-    public static void main(String[] args) throws ExecutionException, InterruptedException, CertificateException, IOException {
+    public static void main(String[] args) throws Exception {
 
         System.out.println("Server Starting");
 
         BlockingPollableConnectionHandler<Channels, Priority> connectionHandler = new BlockingPollableConnectionHandler<>();
-        NetworkEnvironment<Channels, Priority> networkEnvironment = TestUtils.newServer(Channels.class, Priority.class, new InetSocketAddress( 9999), connectionHandler);
+        QuicNetworkingEnvironment<Channels, Priority> networkEnvironment = TestUtils.newServer(Channels.class, Priority.class, new InetSocketAddress( 9999), connectionHandler);
 
         TextChannelHandler textChannelHandler = new TextChannelHandler();
 
@@ -49,7 +46,8 @@ public class ServerExample {
             }
         }
 
-        networkEnvironment.close();
+        networkEnvironment.close().await();
+        networkEnvironment.shutdownGracefully().await();
     }
 
     static class TextChannelHandler {

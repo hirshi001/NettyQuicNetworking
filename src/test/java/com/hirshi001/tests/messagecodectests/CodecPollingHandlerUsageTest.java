@@ -3,6 +3,7 @@ package com.hirshi001.tests.messagecodectests;
 import com.hirshi001.quicnetworking.channel.QChannel;
 import com.hirshi001.quicnetworking.connection.Connection;
 import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.BlockingPollableConnectionHandler;
+import com.hirshi001.quicnetworking.helper.QuicNetworkingEnvironment;
 import com.hirshi001.quicnetworking.message.channelhandlers.MessageCodec;
 import com.hirshi001.quicnetworking.message.channelhandlers.MessageContext;
 import com.hirshi001.quicnetworking.message.channelhandlers.PollableMessageHandler;
@@ -40,18 +41,18 @@ public class CodecPollingHandlerUsageTest {
     }
 
     @Test
-    public void reliableCodecPollingHandlerUsageTest() throws ExecutionException, InterruptedException, CertificateException {
+    public void reliableCodecPollingHandlerUsageTest() throws Exception {
         codecPollingHandlerUsageTest(QChannel.Reliability.RELIABLE);
     }
 
 
     @Test
-    public void unreliableCodecPollingHandlerUsageTest() throws ExecutionException, InterruptedException, CertificateException {
+    public void unreliableCodecPollingHandlerUsageTest() throws Exception {
         codecPollingHandlerUsageTest(QChannel.Reliability.UNRELIABLE);
     }
 
 
-    private void codecPollingHandlerUsageTest(QChannel.Reliability reliability) throws CertificateException, ExecutionException, InterruptedException {
+    private void codecPollingHandlerUsageTest(QChannel.Reliability reliability) throws Exception {
         MessageRegistry registry = new DefaultMessageRegistry();
         registry.register(StringMessage::new, StringMessage.class, 0);
         registry.register(IntegerArrayMessage::new, IntegerArrayMessage.class, 1);
@@ -60,10 +61,10 @@ public class CodecPollingHandlerUsageTest {
         final int[] messageArray = {1, 2, 3, 4, 5};
 
         BlockingPollableConnectionHandler<Channels, Priority> serverConnectionHandler = new BlockingPollableConnectionHandler<>();
-        NetworkEnvironment<Channels, Priority> serverNetworkEnvironment = TestUtils.newServer(Channels.class, Priority.class, new InetSocketAddress(9999), serverConnectionHandler);
+        QuicNetworkingEnvironment<Channels, Priority> serverNetworkEnvironment = TestUtils.newServer(Channels.class, Priority.class, new InetSocketAddress(9999), serverConnectionHandler);
 
         BlockingPollableConnectionHandler<Channels, Priority> clientConnectionHandler = new BlockingPollableConnectionHandler<>();
-        NetworkEnvironment<Channels, Priority> clientNetworkEnvironment = TestUtils.newClient(Channels.class, Priority.class, new InetSocketAddress(NetUtil.LOCALHOST4, 9999), clientConnectionHandler);
+        QuicNetworkingEnvironment<Channels, Priority> clientNetworkEnvironment = TestUtils.newClient(Channels.class, Priority.class, new InetSocketAddress(NetUtil.LOCALHOST4, 9999), clientConnectionHandler);
 
         Connection<Channels, Priority> serverConnection = serverConnectionHandler.pollNewConnection(100, TimeUnit.MILLISECONDS);
         final PollableMessageHandler serverHandler = new PollableMessageHandler(registry);
@@ -123,8 +124,11 @@ public class CodecPollingHandlerUsageTest {
         clientC1.close().sync();
         serverC1.close().sync();
 
-        clientNetworkEnvironment.close();
-        serverNetworkEnvironment.close();
+        clientNetworkEnvironment.close().await();
+        serverNetworkEnvironment.close().await();
+
+        clientNetworkEnvironment.shutdownGracefully().await();
+        serverNetworkEnvironment.shutdownGracefully().await();
 
 
     }

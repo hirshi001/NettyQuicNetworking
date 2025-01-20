@@ -2,9 +2,8 @@ package com.hirshi001.examples.meagerexamples;
 
 import com.hirshi001.quicnetworking.channel.QChannel;
 import com.hirshi001.quicnetworking.connection.Connection;
-import com.hirshi001.quicnetworking.connectionfactory.ConnectionFactory;
 import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.BlockingPollableConnectionHandler;
-import com.hirshi001.tests.util.NetworkEnvironment;
+import com.hirshi001.quicnetworking.helper.QuicNetworkingEnvironment;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.*;
 import io.netty.util.CharsetUtil;
@@ -24,7 +23,7 @@ public final class ClientTest {
 
 
         BlockingPollableConnectionHandler<ServerTest.Channels, ServerTest.Priority> connectionHandler = new BlockingPollableConnectionHandler<>();
-        NetworkEnvironment<ServerTest.Channels, ServerTest.Priority> networkEnvironment = TestUtils.newClient(ServerTest.Channels.class, ServerTest.Priority.class, new InetSocketAddress(NetUtil.LOCALHOST4, 9999), connectionHandler);
+        QuicNetworkingEnvironment<ServerTest.Channels, ServerTest.Priority> networkEnvironment = TestUtils.newClient(ServerTest.Channels.class, ServerTest.Priority.class, new InetSocketAddress(NetUtil.LOCALHOST4, 9999), connectionHandler);
 
         Connection<ServerTest.Channels, ServerTest.Priority> newConnection = connectionHandler.pollNewConnection();
 
@@ -69,6 +68,7 @@ public final class ClientTest {
         System.err.println("Received message:" + receiveFuture2.get().toString(CharsetUtil.US_ASCII));
         receiveFuture2.get().release();
 
-        networkEnvironment.close();
+        networkEnvironment.close().await();
+        networkEnvironment.shutdownGracefully().await();
     }
 }

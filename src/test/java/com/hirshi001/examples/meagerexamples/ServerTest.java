@@ -4,6 +4,7 @@ import com.hirshi001.quicnetworking.channel.QChannel;
 import com.hirshi001.quicnetworking.connection.Connection;
 import com.hirshi001.quicnetworking.connectionfactory.ConnectionFactory;
 import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.BlockingPollableConnectionHandler;
+import com.hirshi001.quicnetworking.helper.QuicNetworkingEnvironment;
 import com.hirshi001.tests.util.NetworkEnvironment;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.*;
@@ -12,6 +13,7 @@ import com.hirshi001.tests.util.TestUtils;
 
 import java.net.InetSocketAddress;
 import java.security.cert.CertificateException;
+import java.util.Scanner;
 import java.util.concurrent.ExecutionException;
 
 public class ServerTest {
@@ -29,14 +31,27 @@ public class ServerTest {
         Video
     }
 
-    public static void main(String[] args) throws CertificateException, ExecutionException, InterruptedException {
+    public static void main(String[] args) throws Exception {
         BlockingPollableConnectionHandler<Channels, Priority> connectionHandler = new BlockingPollableConnectionHandler<>();
 
-        NetworkEnvironment<Channels, Priority> networkEnvironment = TestUtils.newServer(Channels.class, Priority.class, new InetSocketAddress(9999), connectionHandler);
+        QuicNetworkingEnvironment<Channels, Priority> networkEnvironment = TestUtils.newServer(Channels.class, Priority.class, new InetSocketAddress(9999), connectionHandler);
 
+
+        Scanner scanner = new Scanner(System.in);
         while (true) {
+
+            if(System.in.available() > 0) {
+                String message = scanner.nextLine();
+                if(message.equals("exit")) {
+                    break;
+                }
+            }
+
             System.out.println("Waiting for new connection");
             Connection<Channels, Priority> newConnection = connectionHandler.pollNewConnection();
+            if(newConnection == null) {
+                continue;
+            }
             System.out.println("New connection accepted");
             QChannel textChannel = newConnection.getChannel(Channels.Text);
 
@@ -66,7 +81,8 @@ public class ServerTest {
 
         }
 
-        // networkEnvironment.close();
+        networkEnvironment.close().await();
+        networkEnvironment.shutdownGracefully().await();
     }
 
 

@@ -4,6 +4,7 @@ import com.hirshi001.quicnetworking.channel.QChannel;
 import com.hirshi001.quicnetworking.connection.Connection;
 import com.hirshi001.quicnetworking.connectionfactory.ConnectionFactory;
 import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.BlockingPollableConnectionHandler;
+import com.hirshi001.quicnetworking.helper.QuicNetworkingEnvironment;
 import com.hirshi001.tests.util.NetworkEnvironment;
 import com.hirshi001.tests.util.TestUtils;
 import io.netty.buffer.Unpooled;
@@ -49,15 +50,15 @@ public class SingleClientManyChannelTests {
     }
 
     @Test
-    public void manyChannelsTest() throws ExecutionException, InterruptedException, CertificateException {
+    public void manyChannelsTest() throws Exception {
         final String message = "Hello World from Server";
         final byte[] messageBytes = message.getBytes(Charset.defaultCharset());
 
         BlockingPollableConnectionHandler<Channels, Priority> serverConnectionHandler = new BlockingPollableConnectionHandler<>();
-        NetworkEnvironment<Channels, Priority> serverNetworkEnvironment = TestUtils.newServer(Channels.class, Priority.class, new InetSocketAddress(9999), serverConnectionHandler);
+        QuicNetworkingEnvironment<Channels, Priority> serverNetworkEnvironment = TestUtils.newServer(Channels.class, Priority.class, new InetSocketAddress(9999), serverConnectionHandler);
 
         BlockingPollableConnectionHandler<Channels, Priority> clientConnectionHandler = new BlockingPollableConnectionHandler<>();
-        NetworkEnvironment<Channels, Priority> clientNetworkEnvironment = TestUtils.newClient(Channels.class, Priority.class, new InetSocketAddress(NetUtil.LOCALHOST4, 9999), clientConnectionHandler);
+        QuicNetworkingEnvironment<Channels, Priority> clientNetworkEnvironment = TestUtils.newClient(Channels.class, Priority.class, new InetSocketAddress(NetUtil.LOCALHOST4, 9999), clientConnectionHandler);
 
         Connection<Channels, Priority> serverConnection = serverConnectionHandler.pollNewConnection(100, TimeUnit.MILLISECONDS);
 
@@ -136,8 +137,11 @@ public class SingleClientManyChannelTests {
             clientC.close().sync();
         }
 
-        clientNetworkEnvironment.close();
-        serverNetworkEnvironment.close();
+        clientNetworkEnvironment.close().await();
+        serverNetworkEnvironment.close().await();
+
+        clientNetworkEnvironment.shutdownGracefully().await();
+        serverNetworkEnvironment.shutdownGracefully().await();
     }
 
 }

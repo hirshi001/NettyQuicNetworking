@@ -4,6 +4,7 @@ import com.hirshi001.quicnetworking.channel.QChannel;
 import com.hirshi001.quicnetworking.connection.Connection;
 import com.hirshi001.quicnetworking.connectionfactory.ConnectionFactory;
 import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.BlockingPollableConnectionHandler;
+import com.hirshi001.quicnetworking.helper.QuicNetworkingEnvironment;
 import com.hirshi001.tests.util.NetworkEnvironment;
 import com.hirshi001.tests.util.TestUtils;
 import io.netty.buffer.ByteBuf;
@@ -33,15 +34,15 @@ public class SingleClientSingleChannelUnreliableTests {
     }
 
     @Test
-    public void unreliableClientReceiveChannelHandlerSetBeforeFirst() throws ExecutionException, InterruptedException, CertificateException {
+    public void unreliableClientReceiveChannelHandlerSetBeforeFirst() throws Exception {
         final String message = "Hello World from Server";
         final byte[] messageBytes = message.getBytes(Charset.defaultCharset());
 
         BlockingPollableConnectionHandler<Channels, Priority> serverConnectionHandler = new BlockingPollableConnectionHandler<>();
-        NetworkEnvironment<Channels, Priority> serverNetworkEnvironment = TestUtils.newServer(Channels.class, Priority.class, new InetSocketAddress(9999), serverConnectionHandler);
+        QuicNetworkingEnvironment<Channels, Priority> serverNetworkEnvironment = TestUtils.newServer(Channels.class, Priority.class, new InetSocketAddress(9999), serverConnectionHandler);
 
         BlockingPollableConnectionHandler<Channels, Priority> clientConnectionHandler = new BlockingPollableConnectionHandler<>();
-        NetworkEnvironment<Channels, Priority> clientNetworkEnvironment = TestUtils.newClient(Channels.class, Priority.class, new InetSocketAddress(NetUtil.LOCALHOST4, 9999), clientConnectionHandler);
+        QuicNetworkingEnvironment<Channels, Priority> clientNetworkEnvironment = TestUtils.newClient(Channels.class, Priority.class, new InetSocketAddress(NetUtil.LOCALHOST4, 9999), clientConnectionHandler);
 
         Connection<Channels, Priority> serverConnection = serverConnectionHandler.pollNewConnection(100, TimeUnit.MILLISECONDS);
 
@@ -69,21 +70,24 @@ public class SingleClientSingleChannelUnreliableTests {
         clientC1.close().sync();
         serverC1.close().sync();
 
-        clientNetworkEnvironment.close();
-        serverNetworkEnvironment.close();
+        clientNetworkEnvironment.close().await();
+        serverNetworkEnvironment.close().await();
+
+        clientNetworkEnvironment.shutdownGracefully().await();
+        serverNetworkEnvironment.shutdownGracefully().await();
     }
 
 
     @Test
-    public void unreliableClientReceiveChannelHandlerSetAfterFirst() throws ExecutionException, InterruptedException, CertificateException {
+    public void unreliableClientReceiveChannelHandlerSetAfterFirst() throws Exception {
         final String message = "Hello World from Server";
         final byte[] messageBytes = message.getBytes(Charset.defaultCharset());
 
         BlockingPollableConnectionHandler<Channels, Priority> serverConnectionHandler = new BlockingPollableConnectionHandler<>();
-        NetworkEnvironment<Channels, Priority> serverNetworkEnvironment = TestUtils.newServer(Channels.class, Priority.class, new InetSocketAddress(9999), serverConnectionHandler);
+        QuicNetworkingEnvironment<Channels, Priority> serverNetworkEnvironment = TestUtils.newServer(Channels.class, Priority.class, new InetSocketAddress(9999), serverConnectionHandler);
 
         BlockingPollableConnectionHandler<Channels, Priority> clientConnectionHandler = new BlockingPollableConnectionHandler<>();
-        NetworkEnvironment<Channels, Priority> clientNetworkEnvironment = TestUtils.newClient(Channels.class, Priority.class, new InetSocketAddress(NetUtil.LOCALHOST4, 9999), clientConnectionHandler);
+        QuicNetworkingEnvironment<Channels, Priority> clientNetworkEnvironment = TestUtils.newClient(Channels.class, Priority.class, new InetSocketAddress(NetUtil.LOCALHOST4, 9999), clientConnectionHandler);
 
         Connection<Channels, Priority> serverConnection = serverConnectionHandler.pollNewConnection(100, TimeUnit.MILLISECONDS);
         QChannel serverC1 = serverConnection.getChannel(Channels.C1);
@@ -117,20 +121,23 @@ public class SingleClientSingleChannelUnreliableTests {
         clientC1.close().sync();
         serverC1.close().sync();
 
-        clientNetworkEnvironment.close();
-        serverNetworkEnvironment.close();
+        clientNetworkEnvironment.close().await();
+        serverNetworkEnvironment.close().await();
+
+        clientNetworkEnvironment.shutdownGracefully().await();
+        serverNetworkEnvironment.shutdownGracefully().await();
     }
 
     @Test
-    public void unreliableServerReceiveChannelHandlerSetBeforeFirst() throws ExecutionException, InterruptedException, CertificateException {
+    public void unreliableServerReceiveChannelHandlerSetBeforeFirst() throws Exception {
         final String message = "Hello World from Client";
         final byte[] messageBytes = message.getBytes(Charset.defaultCharset());
 
         BlockingPollableConnectionHandler<Channels, Priority> serverConnectionHandler = new BlockingPollableConnectionHandler<>();
-        NetworkEnvironment<Channels, Priority> serverNetworkEnvironment = TestUtils.newServer(Channels.class, Priority.class, new InetSocketAddress(9999), serverConnectionHandler);
+        QuicNetworkingEnvironment<Channels, Priority> serverNetworkEnvironment = TestUtils.newServer(Channels.class, Priority.class, new InetSocketAddress(9999), serverConnectionHandler);
 
         BlockingPollableConnectionHandler<Channels, Priority> clientConnectionHandler = new BlockingPollableConnectionHandler<>();
-        NetworkEnvironment<Channels, Priority> clientNetworkEnvironment = TestUtils.newClient(Channels.class, Priority.class, new InetSocketAddress(NetUtil.LOCALHOST4, 9999), clientConnectionHandler);
+        QuicNetworkingEnvironment<Channels, Priority> clientNetworkEnvironment = TestUtils.newClient(Channels.class, Priority.class, new InetSocketAddress(NetUtil.LOCALHOST4, 9999), clientConnectionHandler);
 
         Connection<Channels, Priority> serverConnection = serverConnectionHandler.pollNewConnection(100, TimeUnit.MILLISECONDS);
         QChannel serverC1 = serverConnection.getChannel(Channels.C1);
@@ -158,20 +165,20 @@ public class SingleClientSingleChannelUnreliableTests {
         clientC1.close().sync();
         serverC1.close().sync();
 
-        clientNetworkEnvironment.close();
-        serverNetworkEnvironment.close();
+        clientNetworkEnvironment.close().await();
+        serverNetworkEnvironment.close().await();
     }
 
     @Test
-    public void unreliableServerReceiveChannelHandlerSetAfterFirst() throws ExecutionException, InterruptedException, CertificateException {
+    public void unreliableServerReceiveChannelHandlerSetAfterFirst() throws Exception {
         final String message = "Hello World from Client";
         final byte[] messageBytes = message.getBytes(Charset.defaultCharset());
 
         BlockingPollableConnectionHandler<Channels, Priority> serverConnectionHandler = new BlockingPollableConnectionHandler<>();
-        NetworkEnvironment<Channels, Priority> serverNetworkEnvironment = TestUtils.newServer(Channels.class, Priority.class, new InetSocketAddress(9999), serverConnectionHandler);
+        QuicNetworkingEnvironment<Channels, Priority> serverNetworkEnvironment = TestUtils.newServer(Channels.class, Priority.class, new InetSocketAddress(9999), serverConnectionHandler);
 
         BlockingPollableConnectionHandler<Channels, Priority> clientConnectionHandler = new BlockingPollableConnectionHandler<>();
-        NetworkEnvironment<Channels, Priority> clientNetworkEnvironment = TestUtils.newClient(Channels.class, Priority.class, new InetSocketAddress(NetUtil.LOCALHOST4, 9999), clientConnectionHandler);
+        QuicNetworkingEnvironment<Channels, Priority> clientNetworkEnvironment = TestUtils.newClient(Channels.class, Priority.class, new InetSocketAddress(NetUtil.LOCALHOST4, 9999), clientConnectionHandler);
 
         Connection<Channels, Priority> serverConnection = serverConnectionHandler.pollNewConnection(100, TimeUnit.MILLISECONDS);
         QChannel serverC1 = serverConnection.getChannel(Channels.C1);
@@ -206,7 +213,10 @@ public class SingleClientSingleChannelUnreliableTests {
         clientC1.close().sync();
         serverC1.close().sync();
         
-        clientNetworkEnvironment.close();
-        serverNetworkEnvironment.close();
+        clientNetworkEnvironment.close().await();
+        serverNetworkEnvironment.close().await();
+
+        clientNetworkEnvironment.shutdownGracefully().await();
+        serverNetworkEnvironment.shutdownGracefully().await();
     }
 }

@@ -4,7 +4,6 @@ import static com.hirshi001.examples.Shared.*;
 
 import com.hirshi001.quicnetworking.channel.QChannel;
 import com.hirshi001.quicnetworking.connection.Connection;
-import com.hirshi001.quicnetworking.connectionfactory.ConnectionFactory;
 import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.BlockingPollableConnectionHandler;
 import com.hirshi001.quicnetworking.util.ByteBufferUtil;
 import com.hirshi001.tests.util.NetworkEnvironment;

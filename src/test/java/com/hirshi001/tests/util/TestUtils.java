@@ -27,6 +27,7 @@ public class TestUtils {
                 .build();
 
 
+
         NioEventLoopGroup group = new NioEventLoopGroup();
 
         ConnectionFactory<Channels, Priority> connectionFactory = new ConnectionFactory<>(connectionHandler, group, channelsClass, priorityClass);
@@ -34,10 +35,6 @@ public class TestUtils {
         ChannelHandler codec = new QuicServerCodecBuilder()
                 // Configure some limits for the maximal number of streams (and the data) that we want to handle.
                 .initialMaxData(10000000)
-                // bidirectional streams
-                .initialMaxStreamDataBidirectionalLocal(1000000)
-                .initialMaxStreamDataBidirectionalRemote(1000000)
-                .initialMaxStreamsBidirectional(100)
                 // unidirectional streams
                 .initialMaxStreamsUnidirectional(100)
                 .initialMaxStreamDataUnidirectional(1000000)
@@ -75,10 +72,6 @@ public class TestUtils {
                 .sslContext(context)
                 // Configure some limits for the maximal number of streams (and the data) that we want to handle.
                 .initialMaxData(10000000)
-                // bidirectional streams
-                .initialMaxStreamDataBidirectionalLocal(1000000)
-                .initialMaxStreamDataBidirectionalRemote(1000000)
-                .initialMaxStreamsBidirectional(100)
                 // unidirectional streams
                 .initialMaxStreamsUnidirectional(100)
                 .initialMaxStreamDataUnidirectional(1000000)

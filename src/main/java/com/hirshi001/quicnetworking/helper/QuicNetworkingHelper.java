@@ -84,7 +84,7 @@ public class QuicNetworkingHelper {
 
         EventLoopGroup group = clientConfig.getEventLoopGroup();
         if(group == null){
-            group = new NioEventLoopGroup(1);
+            group = new NioEventLoopGroup();
         }
 
         ChannelHandler codec = new QuicClientCodecBuilder()

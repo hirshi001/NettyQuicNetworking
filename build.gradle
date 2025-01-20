@@ -1,10 +1,11 @@
 plugins {
     id 'java'
     id 'maven-publish'
+    id 'java-library'
 }
 
 group = 'com.hirshi001'
-version = '1.1.1'
+version = '1.1.2'
 
 repositories {
     mavenCentral()
@@ -14,13 +15,13 @@ repositories {
 dependencies {
     testImplementation platform('org.junit:junit-bom:5.10.0')
     testImplementation 'org.junit.jupiter:junit-jupiter'
-    implementation 'io.netty.incubator:netty-incubator-codec-native-quic:0.0.70.Final:osx-x86_64'
+    api 'io.netty.incubator:netty-incubator-codec-native-quic:0.0.70.Final:osx-x86_64'
     // https://mvnrepository.com/artifact/org.bouncycastle/bcpkix-jdk18on
-    implementation 'org.bouncycastle:bcpkix-jdk18on:1.79'
+    api 'org.bouncycastle:bcpkix-jdk18on:1.79'
 
 
     // jetbrain annotations
-    implementation 'org.jetbrains:annotations:23.0.0'
+    api 'org.jetbrains:annotations:23.0.0'
 
 }
 

@@ -109,6 +109,8 @@ public class CodecTest {
         assertEquals(string, decodedString.value);
         assertArrayEquals(array, decodedArray.array);
         assertEquals(integer, decodedInteger.value);
+
+        buf.release();
     }
 
 }

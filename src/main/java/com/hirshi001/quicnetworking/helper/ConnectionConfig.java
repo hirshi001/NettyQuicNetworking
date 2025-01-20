@@ -5,10 +5,10 @@ import io.netty.channel.EventLoopGroup;
 public class ConnectionConfig {
 
 
-    private long initialMaxData;
-    private long initialMaxStreamDataUnidirectional;
-    private int datagramReceive;
-    private int datagramSend;
+    private long initialMaxData = 10000000;
+    private long initialMaxStreamDataUnidirectional = 10000000;
+    private int datagramReceive = 2048;
+    private int datagramSend = 2048;
 
     private EventLoopGroup eventLoopGroup;
 

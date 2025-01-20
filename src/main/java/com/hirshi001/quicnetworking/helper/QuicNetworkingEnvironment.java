@@ -23,24 +23,18 @@ public class QuicNetworkingEnvironment<Channels extends Enum<Channels>, Priority
         this.connectionFactory = new ConnectionFactory<>(connectionHandler, eventLoopGroup, channelsClass, priorityClass);
     }
 
-    public Promise<QuicNetworkingEnvironment<Channels, Priority>> close() throws InterruptedException {
+    public Promise<QuicNetworkingEnvironment<Channels, Priority>> close() {
         EventLoop eventLoop = eventLoopGroup.next();
         Promise<QuicNetworkingEnvironment<Channels, Priority>> promise = eventLoop.newPromise();
         if (eventLoop.inEventLoop())
             close0(eventLoop, promise);
         else
-            eventLoop.submit(() -> {
-                try {
-                    close0(eventLoop, promise);
-                } catch (InterruptedException e) {
-                    promise.setFailure(e);
-                }
-            });
+            eventLoop.submit(() -> close0(eventLoop, promise));
 
         return promise;
     }
 
-    private void close0(EventLoop eventLoop, Promise<QuicNetworkingEnvironment<Channels, Priority>> promise) throws InterruptedException {
+    private void close0(EventLoop eventLoop, Promise<QuicNetworkingEnvironment<Channels, Priority>> promise) {
         Promise<Void> combinerFinish = eventLoop.newPromise();
         PromiseCombiner promiseCombiner = new PromiseCombiner(eventLoop);
 

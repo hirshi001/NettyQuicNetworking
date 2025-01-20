@@ -117,6 +117,34 @@ public class QuicNetworkingHelper {
         return new QuicNetworkingEnvironment<>(group, channel, connectionHandler, channelsClass, priorityClass);
     }
 
+    public static <Channels extends Enum<Channels>, Priority extends Enum<Priority>> QuicNetworkingEnvironment<Channels, Priority> createClient(QuicClientCodecBuilder codecBuilder, @Nullable EventLoopGroup group, SocketAddress remoteAddress, ConnectionHandler<Channels, Priority> connectionHandler, Class<Channels> channelsClass, Class<Priority> priorityClass) throws Exception {
+        return createClient(codecBuilder.build(), group, remoteAddress, connectionHandler, channelsClass, priorityClass);
+    }
+
+    public static <Channels extends Enum<Channels>, Priority extends Enum<Priority>> QuicNetworkingEnvironment<Channels, Priority> createClient(ChannelHandler codec, @Nullable EventLoopGroup group, SocketAddress remoteAddress, ConnectionHandler<Channels, Priority> connectionHandler, Class<Channels> channelsClass, Class<Priority> priorityClass) throws Exception {
+
+        if (group == null) {
+            group = new NioEventLoopGroup();
+        }
+
+        Bootstrap bs = new Bootstrap();
+        Channel channel = bs.group(group)
+                .channel(NioDatagramChannel.class)
+                .handler(codec)
+                .connect(remoteAddress).sync().channel();
+
+        ConnectionFactory<Channels, Priority> connectionFactory = new ConnectionFactory<>(connectionHandler, group, channelsClass, priorityClass);
+
+        QuicChannel quicChannel = QuicChannel.newBootstrap(channel)
+                .handler(connectionFactory.handler())
+                .streamHandler(connectionFactory.streamHandler())
+                .remoteAddress(remoteAddress)
+                .connect()
+                .get();
+
+        return new QuicNetworkingEnvironment<>(group, channel, connectionHandler, channelsClass, priorityClass);
+    }
+
 
 
 

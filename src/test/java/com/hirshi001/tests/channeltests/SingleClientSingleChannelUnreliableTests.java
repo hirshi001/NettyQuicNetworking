@@ -94,6 +94,8 @@ public class SingleClientSingleChannelUnreliableTests {
         serverC1.openOutputStream(QChannel.Reliability.UNRELIABLE).sync();
         serverC1.writeAndFlush(Unpooled.copiedBuffer(messageBytes)).sync();
 
+        Thread.sleep(100);
+
         Connection<Channels, Priority> clientConnection = clientConnectionHandler.pollNewConnection(100, TimeUnit.MILLISECONDS);
         QChannel clientC1 = clientConnection.getChannel(Channels.C1);
         Promise<ByteBuf> receivedBuffer = clientConnection.getConnection().eventLoop().newPromise();
@@ -187,6 +189,8 @@ public class SingleClientSingleChannelUnreliableTests {
         QChannel clientC1 = clientConnection.getChannel(Channels.C1);
         clientC1.openOutputStream(QChannel.Reliability.UNRELIABLE).sync();
         clientC1.writeAndFlush(Unpooled.copiedBuffer(messageBytes)).sync();
+
+        Thread.sleep(100);
 
         Promise<ByteBuf> receivedBuffer = serverConnection.getConnection().eventLoop().newPromise();
         serverC1.setChannelHandler(new ChannelInboundHandlerAdapter() {

@@ -26,32 +26,21 @@ public static void main(String[] args) {
 
     // First define the connection handler you wish to use for when new connections are made to your server
     BlockingPollableConnectionHandler<Channels, Priority> connectionHandler = new BlockingPollableConnectionHandler<>();
-    // Then create the Connection Factory
-    ConnectionFactory<Channels, Priority> connectionFactory = new ConnectionFactory<>(connectionHandler, Channels.class, Priority.class);
-
-    // Then create the Netty Quic Server, passing in connectionFactory.handler() and connectionFactory.streamHandler() to the handler and stream handler
-    // This is just an quick example, but it is missing some core components, please look at the full example on the netty quic incubator page
-
-    NioEventLoopGroup group = new NioEventLoopGroup();
-    ChannelHandler codec = new QuicServerCodecBuilder()
-            // Configure some limits for the maximal number of streams (and the data) that we want to handle.
-            // ...
-            // Make sure to include this if you want to support unreliable channels
-            .datagram(2048, 2048)
-
-            // IMPORTANT: Set the handler and stream handler
-            .handler(connectionFactory.handler())
-            .streamHandler(connectionFactory.streamHandler())
+    
+    
+    // Then create the server
+    SelfSignedCertificate selfSignedCertificate = new SelfSignedCertificate();
+    QuicSslContext context = QuicSslContextBuilder.forServer(
+                    selfSignedCertificate.privateKey(), null, selfSignedCertificate.certificate())
+            .applicationProtocols("example")
             .build();
 
-    Bootstrap bs = new Bootstrap();
-    Channel channel = bs.group(group)
-            .channel(NioDatagramChannel.class)
-            .handler(codec)
-            .bind(new InetSocketAddress(9999/*port number*/)).sync().channel();
+    ServerConfig serverConfig = new ServerConfig();
+    serverConfig.setSslContext(context);
+    serverConfig.setTokenHandler(InsecureQuicTokenHandler.INSTANCE);
+    serverConfig.setEventLoopGroup(new NioEventLoopGroup());
 
-    // Finally, set the channel in the connection factory
-    connectionFactory.setChannel(channel);
+    QuicNetworkingEnvironment<Channels, Priority> serverNetworkEnvironment = QuicNetworkingHelper.createServer(serverConfig, address, connectionHandler, channelsClass, priorityClass);
 
     // Now you can use the connection handler to handle new connections:
 
@@ -60,6 +49,10 @@ public static void main(String[] args) {
         // handle the connection
         handleConnection(newConnection);
     }
+    
+    // Don't forget to close the server when you are done
+    serverNetworkEnvironment.close().awaitUninterruptibly();
+    serverNetworkEnvironment.shutdownGracefully().awaitUninterruptibly();
 }
 ```
 
@@ -70,40 +63,29 @@ public static void main(String[] args) {
 
     // First define the connection handler you wish to use for when the client connects to the server
     BlockingPollableConnectionHandler<Channels, Priority> connectionHandler = new BlockingPollableConnectionHandler<>();
-    // Then create the Connection Factory
-    ConnectionFactory<Channels, Priority> connectionFactory = new ConnectionFactory<>(connectionHandler, Channels.class, Priority.class);
 
-    NioEventLoopGroup group = new NioEventLoopGroup(1);
-    ChannelHandler codec = new QuicClientCodecBuilder()
-            // Configure some limits for the maximal number of streams (and the data) that we want to handle.
-            // ...
-            // Make sure to include this if you want to support unreliable channels
-            .datagram(2048, 2048)
-            // Don't set the handler and stream handler here, we will set it later
+    // Then create the client
+    QuicSslContext context = QuicSslContextBuilder
+            .forClient()
+            .trustManager(InsecureTrustManagerFactory.INSTANCE)
+            .applicationProtocols("example")
             .build();
 
-    Bootstrap bs = new Bootstrap();
-    Channel channel = bs.group(group)
-            .channel(NioDatagramChannel.class)
-            .handler(codec)
-            .bind(0).sync().channel();
+    ClientConfig clientConfig = new ClientConfig();
+    clientConfig.setSslContext(context);
+    clientConfig.setEventLoopGroup(new NioEventLoopGroup());
 
-    // Set the channel in the connection factory
-    connectionFactory.setChannel(channel);
-
-    QuicChannel quicChannel = QuicChannel.newBootstrap(channel)
-            // IMPORTANT: Set the handler and stream handler
-            .handler(connectionFactory.handler())
-            .streamHandler(connectionFactory.streamHandler())
-            .remoteAddress(remoteAddress)
-            .connect()
-            .get();
-
+    QuicNetworkingEnvironment clientNetworkingEnvironment = QuicNetworkingHelper.createClient(clientConfig, remoteAddress, connectionHandler, channelsClass, priorityClass);
 
     // Now you can use the connection handler to handle new connections:
     Connection<Channel, Priority> connection = connectionHandler.poll();
     // handle the connection
     handleConnection(connection);
+    
+    // Don't forget to close the client when you are done
+    connection.close().awaitUninterruptibly();
+    clientNetworkingEnvironment.close().awaitUninterruptibly();
+    clientNetworkingEnvironment.shutdownGracefully().awaitUninterruptibly();
 
 }
 ```
@@ -130,7 +112,6 @@ public static void handleConnection(Connection<Channel, Priority> connection) {
         public void channelRead(ChannelHandlerContext ctx, Object msg) {
             ByteBuf buf = (ByteBuf) msg;
             System.out.println(buf.toString(StandardCharsets.UTF_8));
-            buf.release();
         }
         
         // IMPORTANT, the channel handler must be sharable if the channel is both written to and read from

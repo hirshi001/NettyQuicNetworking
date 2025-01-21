@@ -38,6 +38,17 @@ public class PollableMessageHandler extends SimpleChannelInboundHandler<Message>
     }
 
     /**
+     * Polls the next message from the queue, returning null if no message is available.
+     *
+     * @return the next message, or null if no message is available
+     */
+    @SuppressWarnings("unchecked")
+    public <T extends Message> T pollMsg() {
+        MessageContext<T> messageContext = (MessageContext<T>) messageQueue.poll();
+        return messageContext == null ? null : messageContext.msg;
+    }
+
+    /**
      * Retrieves and removes the next message from the queue, waiting if necessary until a message becomes available.
      *
      * @return the next message
@@ -46,6 +57,17 @@ public class PollableMessageHandler extends SimpleChannelInboundHandler<Message>
     @SuppressWarnings("unchecked")
     public <T extends Message> MessageContext<T> take() throws InterruptedException {
         return (MessageContext<T>) messageQueue.take();
+    }
+
+    /**
+     * Retrieves and removes the next message from the queue, waiting if necessary until a message becomes available.
+     *
+     * @return the next message
+     * @throws InterruptedException if the current thread is interrupted while waiting
+     */
+    @SuppressWarnings("unchecked")
+    public <T extends Message> T takeMsg() throws InterruptedException {
+        return (T) messageQueue.take().msg;
     }
 
     /**
@@ -59,6 +81,20 @@ public class PollableMessageHandler extends SimpleChannelInboundHandler<Message>
     @SuppressWarnings("unchecked")
     public <T extends Message> MessageContext<T> poll(long timeout, TimeUnit unit) throws InterruptedException {
         return (MessageContext<T>) messageQueue.poll(timeout, unit);
+    }
+
+    /**
+     * Retrieves and removes the next message from the queue, waiting if necessary until a message becomes available or the specified timeout elapses.
+     *
+     * @param timeout the maximum time to wait
+     * @param unit    the time unit of the timeout argument
+     * @return the next message, or null if the specified waiting time elapses
+     * @throws InterruptedException if the current thread is interrupted while waiting
+     */
+    @SuppressWarnings("unchecked")
+    public <T extends Message> T pollMsg(long timeout, TimeUnit unit) throws InterruptedException {
+        MessageContext<T> messageContext = (MessageContext<T>) messageQueue.poll(timeout, unit);
+        return messageContext == null ? null : messageContext.msg;
     }
 
     @Override

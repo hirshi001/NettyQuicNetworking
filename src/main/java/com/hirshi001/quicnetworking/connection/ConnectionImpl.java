@@ -11,7 +11,7 @@ import io.netty.incubator.codec.quic.QuicChannel;
 import io.netty.incubator.codec.quic.QuicStreamChannel;
 
 
-public class ConnectionImpl<Channels extends Enum<Channels>, Priority extends Enum<Priority>> implements Connection<Channels, Priority> {
+public class ConnectionImpl<Channels extends Enum<Channels>, Priority extends Enum<Priority>, Attachment> implements Connection<Channels, Priority, Attachment> {
 
     QuicChannel connection;
 
@@ -19,6 +19,7 @@ public class ConnectionImpl<Channels extends Enum<Channels>, Priority extends En
 
     private final Class<Channels> channelsEnum;
     private final Class<Priority> priorityEnum;
+    private Attachment attachment;
 
     public ConnectionImpl(Class<Channels> channelsEnum, Class<Priority> priorityEnum, QuicChannel connection) {
         assert channelsEnum.isEnum();
@@ -154,6 +155,16 @@ public class ConnectionImpl<Channels extends Enum<Channels>, Priority extends En
     @Override
     public ChannelFuture close(long applicationProtocolErrorCode, String errorReason) {
         return connection.close(true, (int) applicationProtocolErrorCode, Unpooled.wrappedBuffer(errorReason.getBytes()));
+    }
+
+    @Override
+    public void setAttachment(Attachment attachment) {
+        this.attachment = attachment;
+    }
+
+    @Override
+    public Attachment getAttachment() {
+        return attachment;
     }
 
 

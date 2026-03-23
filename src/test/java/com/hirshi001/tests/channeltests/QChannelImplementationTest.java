@@ -3,8 +3,9 @@ package com.hirshi001.tests.channeltests;
 import com.hirshi001.quicnetworking.channel.QChannel;
 import com.hirshi001.quicnetworking.connection.Connection;
 import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.BlockingPollableConnectionHandler;
+import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.ConnectionEvent;
+import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.ConnectionEventType;
 import com.hirshi001.quicnetworking.helper.QuicNetworkingEnvironment;
-import com.hirshi001.tests.util.NetworkEnvironment;
 import com.hirshi001.tests.util.TestUtils;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelInboundHandlerAdapter;
@@ -13,8 +14,6 @@ import io.netty.util.concurrent.Future;
 import org.junit.jupiter.api.Test;
 
 import java.net.InetSocketAddress;
-import java.security.cert.CertificateException;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -39,9 +38,13 @@ public class QChannelImplementationTest {
         BlockingPollableConnectionHandler<Channels, Priority> clientConnectionHandler = new BlockingPollableConnectionHandler<>();
         QuicNetworkingEnvironment<Channels, Priority> clientNetworkEnvironment = TestUtils.newClient(Channels.class, Priority.class, new InetSocketAddress(NetUtil.LOCALHOST4, 9999), clientConnectionHandler);
 
-        Connection<Channels, Priority> serverConnection = serverConnectionHandler.pollNewConnection(100, TimeUnit.MILLISECONDS);
+        ConnectionEvent<Channels, Priority> serverConnectionEvent = serverConnectionHandler.pollNewEvent(100, TimeUnit.MILLISECONDS);
+        assertEquals(ConnectionEventType.CONNECTED, serverConnectionEvent.type);
+        Connection<Channels, Priority> serverConnection = serverConnectionEvent.connection;
 
-        Connection<Channels, Priority> clientConnection = clientConnectionHandler.pollNewConnection(100, TimeUnit.MILLISECONDS);
+        ConnectionEvent<Channels, Priority> clientConnectionEvent = clientConnectionHandler.pollNewEvent(100, TimeUnit.MILLISECONDS);
+        assertEquals(ConnectionEventType.CONNECTED, clientConnectionEvent.type);
+        Connection<Channels, Priority> clientConnection = clientConnectionEvent.connection;
 
         QChannel clientC1 = clientConnection.getChannel(Channels.C1);
         QChannel serverC1 = serverConnection.getChannel(Channels.C1);
@@ -70,12 +73,23 @@ public class QChannelImplementationTest {
         assertThrows(IllegalStateException.class, () -> clientC1.setChannelHandler(new ChannelInboundHandlerAdapter() {
         }));
 
+        serverConnection.close().sync();
+        clientConnection.close().sync();
+
+        serverConnectionEvent = serverConnectionHandler.pollNewEvent(100, TimeUnit.MILLISECONDS);
+        assertEquals(ConnectionEventType.DISCONNECTED, serverConnectionEvent.type);
+        assertEquals(serverConnection, serverConnectionEvent.connection);
+
+        clientConnectionEvent = clientConnectionHandler.pollNewEvent(100, TimeUnit.MILLISECONDS);
+        assertEquals(ConnectionEventType.DISCONNECTED, clientConnectionEvent.type);
+        assertEquals(clientConnection, clientConnectionEvent.connection);
 
         clientNetworkEnvironment.close().await();
         serverNetworkEnvironment.close().await();
 
         clientNetworkEnvironment.shutdownGracefully().await();
         serverNetworkEnvironment.shutdownGracefully().await();
+
     }
 
 }

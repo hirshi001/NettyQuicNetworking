@@ -2,10 +2,9 @@ package com.hirshi001.tests.channeltests;
 
 import com.hirshi001.quicnetworking.channel.QChannel;
 import com.hirshi001.quicnetworking.connection.Connection;
-import com.hirshi001.quicnetworking.connectionfactory.ConnectionFactory;
 import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.BlockingPollableConnectionHandler;
+import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.ConnectionEvent;
 import com.hirshi001.quicnetworking.helper.QuicNetworkingEnvironment;
-import com.hirshi001.tests.util.NetworkEnvironment;
 import com.hirshi001.tests.util.TestUtils;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
@@ -16,14 +15,11 @@ import org.junit.jupiter.api.Test;
 
 import java.net.InetSocketAddress;
 import java.nio.charset.Charset;
-import java.security.cert.CertificateException;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class SingleClientManyChannelTests {
 
@@ -60,7 +56,9 @@ public class SingleClientManyChannelTests {
         BlockingPollableConnectionHandler<Channels, Priority> clientConnectionHandler = new BlockingPollableConnectionHandler<>();
         QuicNetworkingEnvironment<Channels, Priority> clientNetworkEnvironment = TestUtils.newClient(Channels.class, Priority.class, new InetSocketAddress(NetUtil.LOCALHOST4, 9999), clientConnectionHandler);
 
-        Connection<Channels, Priority> serverConnection = serverConnectionHandler.pollNewConnection(100, TimeUnit.MILLISECONDS);
+        ConnectionEvent<Channels, Priority> serverConnectionEvent = serverConnectionHandler.pollNewEvent(100, TimeUnit.MILLISECONDS);
+        assertNotNull(serverConnectionEvent);
+        Connection<Channels, Priority> serverConnection = serverConnectionEvent.connection;
 
 
         // Open all channels, 0-49 are reliable, 50-99 are unreliable
@@ -89,7 +87,9 @@ public class SingleClientManyChannelTests {
             });
         }
 
-        Connection<Channels, Priority> clientConnection = clientConnectionHandler.pollNewConnection(100, TimeUnit.MILLISECONDS);
+        ConnectionEvent<Channels, Priority> clientConnectionEvent = clientConnectionHandler.pollNewEvent(100, TimeUnit.MILLISECONDS);
+        assertNotNull(clientConnectionEvent);
+        Connection<Channels, Priority> clientConnection = clientConnectionEvent.connection;
         AtomicInteger clientReceivedCount = new AtomicInteger(0);
         CountDownLatch clientReceivedLatch = new CountDownLatch(100);
         for (int i = 0; i < 100; i++) {

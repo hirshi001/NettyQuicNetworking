@@ -22,6 +22,8 @@ import java.util.concurrent.ExecutionException;
 public class TestUtils {
 
 
+    static final int MAX_DATA = 1000000000;
+
 
     public static <Channels extends Enum<Channels>, Priority extends Enum<Priority>> QuicNetworkingEnvironment<Channels, Priority> newServer(Class<Channels> channelsClass, Class<Priority> priorityClass, SocketAddress address, ConnectionHandler<Channels, Priority> connectionHandler) throws Exception {
         SelfSignedCertificate selfSignedCertificate = new SelfSignedCertificate();
@@ -34,6 +36,8 @@ public class TestUtils {
         serverConfig.setSslContext(context);
         serverConfig.setTokenHandler(InsecureQuicTokenHandler.INSTANCE);
         serverConfig.setEventLoopGroup(new NioEventLoopGroup());
+        serverConfig.setInitialMaxStreamDataUnidirectional(MAX_DATA);
+        serverConfig.setInitialMaxData(MAX_DATA);
 
         return QuicNetworkingHelper.createServer(serverConfig, address, connectionHandler, channelsClass, priorityClass);
     }
@@ -49,6 +53,9 @@ public class TestUtils {
         ClientConfig clientConfig = new ClientConfig();
         clientConfig.setSslContext(context);
         clientConfig.setEventLoopGroup(new NioEventLoopGroup());
+
+        clientConfig.setInitialMaxStreamDataUnidirectional(MAX_DATA);
+        clientConfig.setInitialMaxData(MAX_DATA);
 
         return QuicNetworkingHelper.createClient(clientConfig, remoteAddress, connectionHandler, channelsClass, priorityClass);
     }

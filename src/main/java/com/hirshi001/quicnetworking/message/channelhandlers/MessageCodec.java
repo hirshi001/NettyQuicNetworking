@@ -6,12 +6,13 @@ import com.hirshi001.quicnetworking.message.messageregistry.MessageRegistry;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
+import io.netty.handler.codec.ByteToMessageCodec;
 import io.netty.handler.codec.MessageToMessageCodec;
 
 import java.util.List;
 
 @ChannelHandler.Sharable
-public class MessageCodec extends MessageToMessageCodec<ByteBuf, Message> {
+public class MessageCodec extends SharableByteToMessageCodec<Message> {
 
     private final MessageRegistry messageRegistry;
 
@@ -20,8 +21,7 @@ public class MessageCodec extends MessageToMessageCodec<ByteBuf, Message> {
     }
 
     @Override
-    @SuppressWarnings("unchecked")
-    public void decode(ChannelHandlerContext ctx, ByteBuf in, List out) throws Exception {
+    public void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) throws Exception {
 
         while (in.readableBytes() > 0) {
             in.markReaderIndex();
@@ -57,7 +57,7 @@ public class MessageCodec extends MessageToMessageCodec<ByteBuf, Message> {
                     in.resetReaderIndex();
                     return;
                 }
-                ByteBuf data = in.readSlice(size);
+                ByteBuf data = in.readBytes(size);
                 msg.readBytes(data);
             } else {
                 try {
@@ -67,7 +67,6 @@ public class MessageCodec extends MessageToMessageCodec<ByteBuf, Message> {
                     return;
                 }
             }
-
 
             out.add(msg);
         }
@@ -115,7 +114,7 @@ public class MessageCodec extends MessageToMessageCodec<ByteBuf, Message> {
         }
     }
 
-    @Override
+
     protected void encode(ChannelHandlerContext ctx, Message msg, List<Object> out) throws Exception {
         ByteBuf buf = ctx.alloc().buffer();
         encode(ctx, msg, buf);

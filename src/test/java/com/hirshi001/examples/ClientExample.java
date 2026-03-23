@@ -6,9 +6,10 @@ import static com.hirshi001.examples.Shared.Priority;
 import com.hirshi001.quicnetworking.channel.QChannel;
 import com.hirshi001.quicnetworking.connection.Connection;
 import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.BlockingPollableConnectionHandler;
+import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.ConnectionEvent;
+import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.ConnectionEventType;
 import com.hirshi001.quicnetworking.helper.QuicNetworkingEnvironment;
 import com.hirshi001.quicnetworking.util.ByteBufferUtil;
-import com.hirshi001.tests.util.NetworkEnvironment;
 import com.hirshi001.tests.util.TestUtils;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
@@ -18,7 +19,6 @@ import io.netty.util.NetUtil;
 
 import java.net.InetSocketAddress;
 import java.util.Scanner;
-import java.util.concurrent.ExecutionException;
 
 public class ClientExample {
 
@@ -35,7 +35,9 @@ public class ClientExample {
         BlockingPollableConnectionHandler<Channels, Priority> connectionHandler = new BlockingPollableConnectionHandler<>();
         QuicNetworkingEnvironment<Channels, Priority> networkEnvironment = TestUtils.newClient(Channels.class, Priority.class, new InetSocketAddress(NetUtil.LOCALHOST4, 9999), connectionHandler);
 
-        Connection<Channels, Priority> newConnection = connectionHandler.pollNewConnection();
+        ConnectionEvent<Channels, Priority> connectionEvent = connectionHandler.pollNewEvent();
+        assert connectionEvent.type == ConnectionEventType.CONNECTED;
+        Connection<Channels, Priority> newConnection = connectionEvent.connection;
 
         Thread textChannelThread = new TextChannelThread(newConnection);
         textChannelThread.start();

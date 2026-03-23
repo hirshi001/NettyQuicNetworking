@@ -4,7 +4,9 @@ import static com.hirshi001.examples.Shared.*;
 
 import com.hirshi001.quicnetworking.channel.QChannel;
 import com.hirshi001.quicnetworking.connection.Connection;
-import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.BlockingPollableConnectionHandler;
+import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.ConnectionEvent;
+import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.ConnectionEventType;
+import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.PollableConnectionHandler;
 import com.hirshi001.quicnetworking.helper.QuicNetworkingEnvironment;
 import com.hirshi001.quicnetworking.util.ByteBufferUtil;
 import com.hirshi001.tests.util.TestUtils;
@@ -17,7 +19,7 @@ import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
-import java.util.concurrent.TimeUnit;
+
 
 public class ServerExample {
 
@@ -25,7 +27,7 @@ public class ServerExample {
 
         System.out.println("Server Starting");
 
-        BlockingPollableConnectionHandler<Channels, Priority> connectionHandler = new BlockingPollableConnectionHandler<>();
+        PollableConnectionHandler<Channels, Priority> connectionHandler = new PollableConnectionHandler<>();
         QuicNetworkingEnvironment<Channels, Priority> networkEnvironment = TestUtils.newServer(Channels.class, Priority.class, new InetSocketAddress( 9999), connectionHandler);
 
         TextChannelHandler textChannelHandler = new TextChannelHandler();
@@ -33,7 +35,10 @@ public class ServerExample {
         Scanner scanner = new Scanner(System.in);
 
         while(true) {
-            Connection<Channels, Priority> newConnection = connectionHandler.pollNewConnection(100, TimeUnit.MILLISECONDS);
+            ConnectionEvent<Channels, Priority> connectionEvent = connectionHandler.pollNewEvent();
+            if(connectionEvent == null) continue;
+            assert connectionEvent.type == ConnectionEventType.CONNECTED;
+            Connection<Channels, Priority> newConnection = connectionEvent.connection;
             if(newConnection != null) {
                 textChannelHandler.newConnection(newConnection);
             }

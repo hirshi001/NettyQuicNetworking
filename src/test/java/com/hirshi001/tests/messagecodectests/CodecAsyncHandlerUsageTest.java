@@ -3,16 +3,14 @@ package com.hirshi001.tests.messagecodectests;
 import com.hirshi001.quicnetworking.channel.QChannel;
 import com.hirshi001.quicnetworking.connection.Connection;
 import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.BlockingPollableConnectionHandler;
+import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.ConnectionEvent;
 import com.hirshi001.quicnetworking.helper.QuicNetworkingEnvironment;
 import com.hirshi001.quicnetworking.message.channelhandlers.AsyncMessageHandler;
 import com.hirshi001.quicnetworking.message.channelhandlers.MessageCodec;
-import com.hirshi001.quicnetworking.message.channelhandlers.MessageContext;
-import com.hirshi001.quicnetworking.message.channelhandlers.PollableMessageHandler;
 import com.hirshi001.quicnetworking.message.defaultmessages.arraymessages.IntegerArrayMessage;
 import com.hirshi001.quicnetworking.message.defaultmessages.primitivemessages.StringMessage;
 import com.hirshi001.quicnetworking.message.messageregistry.DefaultMessageRegistry;
 import com.hirshi001.quicnetworking.message.messageregistry.MessageRegistry;
-import com.hirshi001.tests.util.NetworkEnvironment;
 import com.hirshi001.tests.util.TestUtils;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
@@ -21,11 +19,7 @@ import io.netty.util.concurrent.Promise;
 import org.junit.jupiter.api.Test;
 
 import java.net.InetSocketAddress;
-import java.security.cert.CertificateException;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -86,7 +80,8 @@ public class CodecAsyncHandlerUsageTest {
         }, IntegerArrayMessage.class, 1);
 
 
-        Connection<Channels, Priority> serverConnection = serverConnectionHandler.pollNewConnection(100, TimeUnit.MILLISECONDS);
+        ConnectionEvent<Channels, Priority> serverConnectionEvent = serverConnectionHandler.pollNewEvent(100, TimeUnit.MILLISECONDS);
+        Connection<Channels, Priority> serverConnection = serverConnectionEvent.connection;
         QChannel serverC1 = serverConnection.getChannel(Channels.C1);
         serverC1.setChannelHandler(new ChannelInboundHandlerAdapter() {
             @Override
@@ -102,7 +97,8 @@ public class CodecAsyncHandlerUsageTest {
 
         serverC1.openOutputStream(reliability).sync();
 
-        Connection<Channels, Priority> clientConnection = clientConnectionHandler.pollNewConnection(100, TimeUnit.MILLISECONDS);
+        ConnectionEvent<Channels, Priority> clientConnectionEvent = clientConnectionHandler.pollNewEvent(100, TimeUnit.MILLISECONDS);
+        Connection<Channels, Priority> clientConnection = clientConnectionEvent.connection;
         QChannel clientC1 = clientConnection.getChannel(Channels.C1);
         clientC1.setChannelHandler(new ChannelInboundHandlerAdapter() {
             @Override

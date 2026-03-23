@@ -25,8 +25,4 @@ public interface Connection<Channels extends Enum<Channels>, Priority extends En
 
     ChannelFuture close(long applicationProtocolErrorCode, String errorReason);
 
-    void setAttachment(Object attachment);
-
-    Object getAttachment();
-
 }

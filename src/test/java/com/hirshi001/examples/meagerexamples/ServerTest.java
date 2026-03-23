@@ -2,19 +2,18 @@ package com.hirshi001.examples.meagerexamples;
 
 import com.hirshi001.quicnetworking.channel.QChannel;
 import com.hirshi001.quicnetworking.connection.Connection;
-import com.hirshi001.quicnetworking.connectionfactory.ConnectionFactory;
 import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.BlockingPollableConnectionHandler;
+import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.ConnectionEvent;
+import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.ConnectionEventType;
 import com.hirshi001.quicnetworking.helper.QuicNetworkingEnvironment;
-import com.hirshi001.tests.util.NetworkEnvironment;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.*;
 import io.netty.util.CharsetUtil;
 import com.hirshi001.tests.util.TestUtils;
 
 import java.net.InetSocketAddress;
-import java.security.cert.CertificateException;
 import java.util.Scanner;
-import java.util.concurrent.ExecutionException;
+
 
 public class ServerTest {
 
@@ -48,7 +47,11 @@ public class ServerTest {
             }
 
             System.out.println("Waiting for new connection");
-            Connection<Channels, Priority> newConnection = connectionHandler.pollNewConnection();
+
+            ConnectionEvent<Channels, Priority> connectionEvent = connectionHandler.pollNewEvent();
+            assert connectionEvent.type == ConnectionEventType.CONNECTED;
+            Connection<ServerTest.Channels, ServerTest.Priority> newConnection = connectionEvent.connection;
+
             if(newConnection == null) {
                 continue;
             }

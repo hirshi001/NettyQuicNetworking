@@ -2,10 +2,10 @@ package com.hirshi001.tests.channeltests;
 
 import com.hirshi001.quicnetworking.channel.QChannel;
 import com.hirshi001.quicnetworking.connection.Connection;
-import com.hirshi001.quicnetworking.connectionfactory.ConnectionFactory;
 import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.BlockingPollableConnectionHandler;
+import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.ConnectionEvent;
+import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.ConnectionEventType;
 import com.hirshi001.quicnetworking.helper.QuicNetworkingEnvironment;
-import com.hirshi001.tests.util.NetworkEnvironment;
 import com.hirshi001.tests.util.TestUtils;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
@@ -17,12 +17,9 @@ import org.junit.jupiter.api.Test;
 
 import java.net.InetSocketAddress;
 import java.nio.charset.Charset;
-import java.security.cert.CertificateException;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class SingleClientSingleChannelReliableTests {
 
@@ -50,12 +47,18 @@ public class SingleClientSingleChannelReliableTests {
         BlockingPollableConnectionHandler<Channels, Priority> clientConnectionHandler = new BlockingPollableConnectionHandler<>();
         QuicNetworkingEnvironment<Channels, Priority> clientNetworkEnvironment = TestUtils.newClient(Channels.class, Priority.class, new InetSocketAddress(NetUtil.LOCALHOST4, 9999), clientConnectionHandler);
 
-        Connection<Channels, Priority> serverConnection = serverConnectionHandler.pollNewConnection(100, TimeUnit.MILLISECONDS);
+        ConnectionEvent<Channels, Priority> serverConnectionEvent = serverConnectionHandler.pollNewEvent(100, TimeUnit.MILLISECONDS);
+        assertNotNull(serverConnectionEvent);
+        assertEquals(ConnectionEventType.CONNECTED, serverConnectionEvent.type, "Client did not connect to server");
+        Connection<Channels, Priority> serverConnection = serverConnectionEvent.connection;
         QChannel serverC1 = serverConnection.getChannel(Channels.C1);
         serverC1.openOutputStream(QChannel.Reliability.RELIABLE).sync();
         serverC1.writeAndFlush(Unpooled.copiedBuffer(messageBytes)).sync();
 
-        Connection<Channels, Priority> clientConnection = clientConnectionHandler.pollNewConnection(100, TimeUnit.MILLISECONDS);
+        ConnectionEvent<Channels, Priority> clientConnectionEvent = clientConnectionHandler.pollNewEvent(100, TimeUnit.MILLISECONDS);
+        assertNotNull(clientConnectionEvent);
+        assertEquals(ConnectionEventType.CONNECTED, clientConnectionEvent.type, "Server did not connect to client");
+        Connection<Channels, Priority> clientConnection = clientConnectionEvent.connection;
         QChannel clientC1 = clientConnection.getChannel(Channels.C1);
         Promise<ByteBuf> receivedBuffer = clientConnection.getConnection().eventLoop().newPromise();
         Promise<ByteBuf> receivedBuffer2 = clientConnection.getConnection().eventLoop().newPromise();
@@ -111,10 +114,16 @@ public class SingleClientSingleChannelReliableTests {
         BlockingPollableConnectionHandler<Channels, Priority> clientConnectionHandler = new BlockingPollableConnectionHandler<>();
         QuicNetworkingEnvironment<Channels, Priority> clientNetworkEnvironment = TestUtils.newClient(Channels.class, Priority.class, new InetSocketAddress(NetUtil.LOCALHOST4, 9999), clientConnectionHandler);
 
-        Connection<Channels, Priority> serverConnection = serverConnectionHandler.pollNewConnection(100, TimeUnit.MILLISECONDS);
+        ConnectionEvent<Channels, Priority> serverConnectionEvent = serverConnectionHandler.pollNewEvent(100, TimeUnit.MILLISECONDS);
+        assertNotNull(serverConnectionEvent);
+        assertEquals(ConnectionEventType.CONNECTED, serverConnectionEvent.type, "Server did not connect to client");
+        Connection<Channels, Priority> serverConnection = serverConnectionEvent.connection;
         QChannel serverC1 = serverConnection.getChannel(Channels.C1);
 
-        Connection<Channels, Priority> clientConnection = clientConnectionHandler.pollNewConnection(100, TimeUnit.MILLISECONDS);
+        serverConnectionEvent = clientConnectionHandler.pollNewEvent(100, TimeUnit.MILLISECONDS);
+        assertNotNull(serverConnectionEvent);
+        assertEquals(ConnectionEventType.CONNECTED, serverConnectionEvent.type, "Client did not connect to server");
+        Connection<Channels, Priority> clientConnection = serverConnectionEvent.connection;
         QChannel clientC1 = clientConnection.getChannel(Channels.C1);
         clientC1.openOutputStream(QChannel.Reliability.RELIABLE).sync();
         clientC1.writeAndFlush(Unpooled.copiedBuffer(messageBytes)).sync();

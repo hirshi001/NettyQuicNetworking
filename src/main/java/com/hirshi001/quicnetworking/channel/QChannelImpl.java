@@ -5,6 +5,8 @@ import com.hirshi001.quicnetworking.connection.Connection;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.*;
+import io.netty.channel.embedded.EmbeddedChannel;
+import io.netty.channel.group.ChannelGroup;
 import io.netty.incubator.codec.quic.QuicStreamChannel;
 import io.netty.incubator.codec.quic.QuicStreamPriority;
 import io.netty.incubator.codec.quic.QuicStreamType;
@@ -27,9 +29,6 @@ public class QChannelImpl implements QChannel {
     private final Object lock = new Object();
 
 
-    private ByteBuf copyReference;
-
-
     public QChannelImpl(Connection<?, ?> connection, Enum<?> channelId) {
         this.connection = connection;
         this.channelId = channelId;
@@ -42,43 +41,34 @@ public class QChannelImpl implements QChannel {
 
     public void connectInputStream(io.netty.channel.Channel inputStream) {
         synchronized (lock) {
+            assert this.inChannel == null;
             this.inChannel = inputStream;
-            if (channelHandler != null) {
-                inChannel.pipeline().addLast(CHANNEL_HANDLER, channelHandler);
-            } else {
-                inChannel.pipeline().addLast(new ChannelInboundHandlerAdapter() {
-                    @Override
-                    public void channelRead(ChannelHandlerContext ctx, Object msg) {
-                        synchronized (lock) {
-                            if (msg instanceof ByteBuf in) {
-                                copyReference = in;
-                            }
-                            if (channelHandler != null) {
-                                ctx.pipeline().remove(this);
-                                assert ctx.pipeline().get(CHANNEL_HANDLER) == channelHandler;
-                                ctx.channel().eventLoop().execute(() -> ctx.channel().pipeline().fireChannelRead(copyReference));
-                            }
-                        }
-
-                    }
-                });
-            }
-
+            inChannel.pipeline().addLast(channelHandler);
         }
     }
 
     public void acceptDatagram(ByteBuf frame) {
-        synchronized (lock) {
-            if (inChannel == null) {
-                inChannel = new UnreliableDatagramChannel(connection.getConnection(), channelId.ordinal());
-                connection.getConnection().eventLoop().register(inChannel);
+        if (inChannel == null) {
+            synchronized (lock) {
+                ChannelHandler[] handlers;
+                if (channelHandler != null)
+                    handlers = new ChannelHandler[]{channelHandler};
+                else
+                    handlers = new ChannelHandler[0];
+                ;
 
-                if (channelHandler != null) {
-                    inChannel.pipeline().addLast(CHANNEL_HANDLER, channelHandler);
-                }
+
+                EmbeddedChannel inChannel = new EmbeddedChannel(
+                        connection.getConnection(),
+                        DefaultChannelId.newInstance(),
+                        false,
+                        false,
+                        handlers
+                );
+                connection.getConnection().eventLoop().register(inChannel);
             }
-            inChannel.pipeline().fireChannelRead(frame);
         }
+        ((EmbeddedChannel)inChannel).writeOneInbound(frame);
     }
 
     public io.netty.channel.Channel getOutChannel() {
@@ -92,7 +82,6 @@ public class QChannelImpl implements QChannel {
 
     @Override
     public Promise<QChannel> close() {
-
         synchronized (lock) {
             if (outChannel == null && inChannel == null) {
                 return connection.getConnection().eventLoop().<QChannel>newPromise().setSuccess(this);
@@ -187,9 +176,6 @@ public class QChannelImpl implements QChannel {
             this.channelHandler = channelHandler;
             if (inChannel != null) {
                 inChannel.pipeline().addLast(CHANNEL_HANDLER, channelHandler);
-                if (copyReference != null) {
-                    inChannel.pipeline().fireChannelRead(copyReference);
-                }
             }
             if (outChannel != null) {
                 outChannel.pipeline().addLast(CHANNEL_HANDLER, channelHandler);

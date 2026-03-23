@@ -13,5 +13,4 @@ public class Shared {
         VoiceChannel,
         GameChannel
     }
-
 }

@@ -2,6 +2,8 @@ package com.hirshi001.tests.connectiontests;
 
 import com.hirshi001.quicnetworking.connection.Connection;
 import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.BlockingPollableConnectionHandler;
+import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.ConnectionEvent;
+import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.ConnectionEventType;
 import com.hirshi001.quicnetworking.helper.QuicNetworkingEnvironment;
 import com.hirshi001.tests.util.TestUtils;
 import io.netty.channel.EventLoopGroup;
@@ -37,8 +39,13 @@ public class ConnectionTests {
         AtomicReference<Connection> server = new AtomicReference<>();
         AtomicReference<Connection> client = new AtomicReference<>();
 
-        assertDoesNotThrow(() -> server.set(serverConnectionHandler.pollNewConnection(100, TimeUnit.MILLISECONDS)));
-        assertDoesNotThrow(() -> client.set(clientConnectionHandler.pollNewConnection(100, TimeUnit.MILLISECONDS)));
+        ConnectionEvent<Channels, Priority> serverConnectionEvent = assertDoesNotThrow(() -> serverConnectionHandler.pollNewEvent(100, TimeUnit.MILLISECONDS));
+        assertEquals(ConnectionEventType.CONNECTED, serverConnectionEvent.type);
+        server.set(serverConnectionEvent.connection);
+
+        ConnectionEvent<Channels, Priority> clientConnectionEvent = assertDoesNotThrow(() -> clientConnectionHandler.pollNewEvent(100, TimeUnit.MILLISECONDS));
+        assertEquals(ConnectionEventType.CONNECTED, clientConnectionEvent.type);
+        client.set(clientConnectionEvent.connection);
 
         assertNotNull(server.get());
         assertNotNull(client.get());
@@ -69,10 +76,22 @@ public class ConnectionTests {
 
         AtomicReference<Connection> client1 = new AtomicReference<>();
         AtomicReference<Connection> client2 = new AtomicReference<>();
-        assertDoesNotThrow(() -> server1.set(serverConnectionHandler.pollNewConnection(100, TimeUnit.MILLISECONDS)));
-        assertDoesNotThrow(() -> server2.set(serverConnectionHandler.pollNewConnection(100, TimeUnit.MILLISECONDS)));
-        assertDoesNotThrow(() -> client1.set(clientConnectionHandler1.pollNewConnection(100, TimeUnit.MILLISECONDS)));
-        assertDoesNotThrow(() -> client2.set(clientConnectionHandler2.pollNewConnection(100, TimeUnit.MILLISECONDS)));
+
+        ConnectionEvent<Channels, Priority> serverConnectionEvent = assertDoesNotThrow(() -> serverConnectionHandler.pollNewEvent(100, TimeUnit.MILLISECONDS));
+        assertEquals(ConnectionEventType.CONNECTED, serverConnectionEvent.type);
+        server1.set(serverConnectionEvent.connection);
+
+        serverConnectionEvent = assertDoesNotThrow(() -> serverConnectionHandler.pollNewEvent(100, TimeUnit.MILLISECONDS));
+        assertEquals(ConnectionEventType.CONNECTED, serverConnectionEvent.type);
+        server2.set(serverConnectionEvent.connection);
+
+        ConnectionEvent<Channels, Priority> clientConnectionEvent = assertDoesNotThrow(() -> clientConnectionHandler1.pollNewEvent(100, TimeUnit.MILLISECONDS));
+        assertEquals(ConnectionEventType.CONNECTED, clientConnectionEvent.type);
+        client1.set(clientConnectionEvent.connection);
+
+        clientConnectionEvent = assertDoesNotThrow(() -> clientConnectionHandler2.pollNewEvent(100, TimeUnit.MILLISECONDS));
+        assertEquals(ConnectionEventType.CONNECTED, clientConnectionEvent.type);
+        client2.set(clientConnectionEvent.connection);
 
         assertNotNull(server1.get());
         assertNotNull(server2.get());
@@ -120,8 +139,13 @@ public class ConnectionTests {
 
         for (int i = 0; i < numClients; i++) {
             final int index = i;
-            assertDoesNotThrow(() -> server[index].set(serverConnectionHandler.pollNewConnection(100, TimeUnit.MILLISECONDS)));
-            assertDoesNotThrow(() -> clients[index].set(clientConnectionHandlers[index].pollNewConnection(100, TimeUnit.MILLISECONDS)));
+            ConnectionEvent<Channels, Priority> serverConnectionEvent = assertDoesNotThrow(() -> serverConnectionHandler.pollNewEvent(100, TimeUnit.MILLISECONDS));
+            assertEquals(ConnectionEventType.CONNECTED, serverConnectionEvent.type);
+            server[index].set(serverConnectionEvent.connection);
+
+            ConnectionEvent<Channels, Priority> clientConnectionEvent = assertDoesNotThrow(() -> clientConnectionHandlers[index].pollNewEvent(100, TimeUnit.MILLISECONDS));
+            assertEquals(ConnectionEventType.CONNECTED, clientConnectionEvent.type);
+            clients[index].set(clientConnectionEvent.connection);
         }
 
         for (int i = 0; i < numClients; i++) {

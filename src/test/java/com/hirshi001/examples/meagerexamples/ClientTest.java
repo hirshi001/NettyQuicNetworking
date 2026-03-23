@@ -3,6 +3,8 @@ package com.hirshi001.examples.meagerexamples;
 import com.hirshi001.quicnetworking.channel.QChannel;
 import com.hirshi001.quicnetworking.connection.Connection;
 import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.BlockingPollableConnectionHandler;
+import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.ConnectionEvent;
+import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.ConnectionEventType;
 import com.hirshi001.quicnetworking.helper.QuicNetworkingEnvironment;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.*;
@@ -25,7 +27,9 @@ public final class ClientTest {
         BlockingPollableConnectionHandler<ServerTest.Channels, ServerTest.Priority> connectionHandler = new BlockingPollableConnectionHandler<>();
         QuicNetworkingEnvironment<ServerTest.Channels, ServerTest.Priority> networkEnvironment = TestUtils.newClient(ServerTest.Channels.class, ServerTest.Priority.class, new InetSocketAddress(NetUtil.LOCALHOST4, 9999), connectionHandler);
 
-        Connection<ServerTest.Channels, ServerTest.Priority> newConnection = connectionHandler.pollNewConnection();
+        ConnectionEvent<ServerTest.Channels, ServerTest.Priority> connectionEvent = connectionHandler.pollNewEvent();
+        assert connectionEvent.type == ConnectionEventType.CONNECTED;
+        Connection<ServerTest.Channels, ServerTest.Priority> newConnection = connectionEvent.connection;
 
 
         // Reliable receive example

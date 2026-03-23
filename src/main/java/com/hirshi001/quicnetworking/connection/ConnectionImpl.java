@@ -1,5 +1,6 @@
 package com.hirshi001.quicnetworking.connection;
 
+import com.hirshi001.quicnetworking.channel.QChannel;
 import com.hirshi001.quicnetworking.channel.QChannelImpl;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
@@ -7,11 +8,12 @@ import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
+import io.netty.channel.embedded.EmbeddedChannel;
 import io.netty.incubator.codec.quic.QuicChannel;
 import io.netty.incubator.codec.quic.QuicStreamChannel;
 
 
-public class ConnectionImpl<Channels extends Enum<Channels>, Priority extends Enum<Priority>, Attachment> implements Connection<Channels, Priority, Attachment> {
+public class ConnectionImpl<Channels extends Enum<Channels>, Priority extends Enum<Priority>> implements Connection<Channels, Priority> {
 
     QuicChannel connection;
 
@@ -19,7 +21,6 @@ public class ConnectionImpl<Channels extends Enum<Channels>, Priority extends En
 
     private final Class<Channels> channelsEnum;
     private final Class<Priority> priorityEnum;
-    private Attachment attachment;
 
     public ConnectionImpl(Class<Channels> channelsEnum, Class<Priority> priorityEnum, QuicChannel connection) {
         assert channelsEnum.isEnum();
@@ -77,24 +78,6 @@ public class ConnectionImpl<Channels extends Enum<Channels>, Priority extends En
             public boolean isSharable() {
                 return true;
             }
-
-            /*
-            @Override
-            protected void decode(ChannelHandlerContext ctx, ByteBuf msg, List<Object> out) throws Exception {
-                super.channelRead(ctx, msg);
-                ByteBuf in = msg;
-                System.out.println("Decoding datagram");
-                if (in.readableBytes() < 4)
-                    return;
-                int channelId = in.readInt();
-                if (channelId < 0 || channelId >= channels.length) {
-                    System.out.println("Invalid channel id: " + channelId);
-                    return;
-                }
-                channels[channelId].acceptDatagram(in);
-            }
-
-             */
         };
     }
 
@@ -155,16 +138,6 @@ public class ConnectionImpl<Channels extends Enum<Channels>, Priority extends En
     @Override
     public ChannelFuture close(long applicationProtocolErrorCode, String errorReason) {
         return connection.close(true, (int) applicationProtocolErrorCode, Unpooled.wrappedBuffer(errorReason.getBytes()));
-    }
-
-    @Override
-    public void setAttachment(Attachment attachment) {
-        this.attachment = attachment;
-    }
-
-    @Override
-    public Attachment getAttachment() {
-        return attachment;
     }
 
 

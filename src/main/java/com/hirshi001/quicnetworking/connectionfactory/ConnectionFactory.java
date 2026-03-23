@@ -1,6 +1,8 @@
 package com.hirshi001.quicnetworking.connectionfactory;
 
 import com.hirshi001.quicnetworking.connection.ConnectionImpl;
+import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.ConnectionEvent;
+import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.ConnectionEventType;
 import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.ConnectionHandler;
 import io.netty.channel.*;
 import io.netty.incubator.codec.quic.QuicChannel;
@@ -39,7 +41,7 @@ public class ConnectionFactory<Channels extends Enum<Channels>, Priority extends
                 quicChannel.pipeline().remove(this);
                 ConnectionImpl<Channels, Priority> connection = new ConnectionImpl<>(channelsClass, priorityClass, (QuicChannel) ctx.channel());
                 connectionMap.put(ctx.channel().id(), connection);
-                connectionHandler.acceptConnection(connection);
+                connectionHandler.newEvent(new ConnectionEvent<>(connection, ConnectionEventType.CONNECTED));
             }
 
             @Override

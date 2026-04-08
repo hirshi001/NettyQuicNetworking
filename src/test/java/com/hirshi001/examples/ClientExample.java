@@ -6,9 +6,6 @@ import static com.hirshi001.examples.Shared.Priority;
 import com.hirshi001.quicnetworking.channel.QChannel;
 import com.hirshi001.quicnetworking.connection.Connection;
 import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.BlockingPollableConnectionHandler;
-import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.ConnectionEvent;
-import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.ConnectionEventType;
-import com.hirshi001.quicnetworking.helper.QuicNetworkingEnvironment;
 import com.hirshi001.quicnetworking.util.ByteBufferUtil;
 import com.hirshi001.tests.util.TestUtils;
 import io.netty.buffer.ByteBuf;
@@ -24,29 +21,24 @@ public class ClientExample {
 
     public static String name;
 
-    public static void main(String[] args) throws Exception {
+    static void main() throws Exception {
 
         System.out.println("Client Starting");
         System.out.println("What is your name?");
         Scanner scanner = new Scanner(System.in);
         name = scanner.nextLine();
 
-
         BlockingPollableConnectionHandler<Channels, Priority> connectionHandler = new BlockingPollableConnectionHandler<>();
-        QuicNetworkingEnvironment<Channels, Priority> networkEnvironment = TestUtils.newClient(Channels.class, Priority.class, new InetSocketAddress(NetUtil.LOCALHOST4, 9999), connectionHandler);
+        try(var _ = TestUtils.newClient(Channels.class, Priority.class, new InetSocketAddress(NetUtil.LOCALHOST4, 9999), connectionHandler)) {
 
-        ConnectionEvent<Channels, Priority> connectionEvent = connectionHandler.pollNewEvent();
-        assert connectionEvent.type == ConnectionEventType.CONNECTED;
-        Connection<Channels, Priority> newConnection = connectionEvent.connection;
+            Connection<Channels, Priority> newConnection = connectionHandler.pollNewConnection();
+            Thread textChannelThread = new TextChannelThread(newConnection);
+            textChannelThread.start();
 
-        Thread textChannelThread = new TextChannelThread(newConnection);
-        textChannelThread.start();
+            textChannelThread.join();
+            System.out.println("Client exiting");
 
-        textChannelThread.join();
-        System.out.println("Client exiting");
-
-        networkEnvironment.close().await();
-        networkEnvironment.shutdownGracefully().await();
+        }
     }
 
     static class TextChannelThread extends Thread {
@@ -62,14 +54,14 @@ public class ClientExample {
             QChannel textChannel = connection.getChannel(Channels.TextChannel);
 
             // set handler
-            textChannel.setChannelHandler(new ChannelInboundHandlerAdapter(){
+            textChannel.pipeline().addLast(new ChannelInboundHandlerAdapter() {
                 @Override
                 public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
-                    if(msg instanceof ByteBuf in) {
+                    if (msg instanceof ByteBuf in) {
                         String name = ByteBufferUtil.readStringFromBuf(in);
                         String message = ByteBufferUtil.readStringFromBuf(in);
                         System.out.println(name + ": " + message);
-                    }else {
+                    } else {
                         super.channelRead(ctx, msg);
                     }
                 }

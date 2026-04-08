@@ -1,12 +1,10 @@
 package com.hirshi001.quicnetworking.connectionfactory;
 
 import com.hirshi001.quicnetworking.connection.ConnectionImpl;
-import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.ConnectionEvent;
-import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.ConnectionEventType;
 import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.ConnectionHandler;
 import io.netty.channel.*;
-import io.netty.incubator.codec.quic.QuicChannel;
-import io.netty.incubator.codec.quic.QuicStreamChannel;
+import io.netty.handler.codec.quic.QuicChannel;
+import io.netty.handler.codec.quic.QuicStreamChannel;
 import io.netty.util.concurrent.DefaultPromise;
 import io.netty.util.concurrent.Promise;
 import io.netty.util.concurrent.PromiseCombiner;
@@ -36,12 +34,11 @@ public class ConnectionFactory<Channels extends Enum<Channels>, Priority extends
         return new ChannelInboundHandlerAdapter(){
             @Override
             public void channelActive(ChannelHandlerContext ctx) throws Exception {
-                super.channelActive(ctx);
                 QuicChannel quicChannel = (QuicChannel) ctx.channel();
                 quicChannel.pipeline().remove(this);
-                ConnectionImpl<Channels, Priority> connection = new ConnectionImpl<>(channelsClass, priorityClass, (QuicChannel) ctx.channel());
+                ConnectionImpl<Channels, Priority> connection = new ConnectionImpl<>(channelsClass, priorityClass, quicChannel);
                 connectionMap.put(ctx.channel().id(), connection);
-                connectionHandler.newEvent(new ConnectionEvent<>(connection, ConnectionEventType.CONNECTED));
+                connectionHandler.newConnection(connection);
             }
 
             @Override
@@ -57,7 +54,6 @@ public class ConnectionFactory<Channels extends Enum<Channels>, Priority extends
             protected void initChannel(QuicStreamChannel ch) throws Exception {
                 ConnectionImpl<Channels, Priority> connection = connectionMap.get(ch.parent().id());
                 if(connection == null){
-                    System.out.println("Connection not found");
                     ch.close();
                     return;
                 }

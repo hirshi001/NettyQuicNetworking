@@ -3,14 +3,11 @@ package com.hirshi001.tests.channeltests;
 import com.hirshi001.quicnetworking.channel.QChannel;
 import com.hirshi001.quicnetworking.connection.Connection;
 import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.BlockingPollableConnectionHandler;
-import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.ConnectionEvent;
-import com.hirshi001.quicnetworking.helper.QuicNetworkingEnvironment;
 import com.hirshi001.tests.util.TestUtils;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.util.NetUtil;
-import io.netty.util.ReferenceCountUtil;
 import org.junit.jupiter.api.Test;
 
 import java.net.InetSocketAddress;
@@ -45,103 +42,99 @@ public class SingleClientManyChannelTests {
         C91, C92, C93, C94, C95, C96, C97, C98, C99, C100
     }
 
+    static final int MAX_CHANNELS = Channels.values().length;
+
+    private static QChannel.Reliability reliability(Channels channel) {
+        assert(MAX_CHANNELS == 100);
+        return channel.ordinal() < 50 ? QChannel.Reliability.RELIABLE : QChannel.Reliability.UNRELIABLE;
+    }
+
+    private static QChannel initChannel(Connection<Channels, Priority> connection, int channelIndex) throws InterruptedException {
+        var channelEnum = Channels.values()[channelIndex];
+        var channel = connection.getChannel(channelEnum);
+        var reliability = reliability(channelEnum);
+
+        channel.openOutputStream(reliability).sync();
+
+        return channel;
+    }
+
     @Test
     public void manyChannelsTest() throws Exception {
         final String message = "Hello World from Server";
         final byte[] messageBytes = message.getBytes(Charset.defaultCharset());
 
         BlockingPollableConnectionHandler<Channels, Priority> serverConnectionHandler = new BlockingPollableConnectionHandler<>();
-        QuicNetworkingEnvironment<Channels, Priority> serverNetworkEnvironment = TestUtils.newServer(Channels.class, Priority.class, new InetSocketAddress(9999), serverConnectionHandler);
-
         BlockingPollableConnectionHandler<Channels, Priority> clientConnectionHandler = new BlockingPollableConnectionHandler<>();
-        QuicNetworkingEnvironment<Channels, Priority> clientNetworkEnvironment = TestUtils.newClient(Channels.class, Priority.class, new InetSocketAddress(NetUtil.LOCALHOST4, 9999), clientConnectionHandler);
+        try (var _ = TestUtils.newServer(Channels.class, Priority.class, new InetSocketAddress(9999), serverConnectionHandler);
+             var _ = TestUtils.newClient(Channels.class, Priority.class, new InetSocketAddress(NetUtil.LOCALHOST4, 9999), clientConnectionHandler);
+        ) {
+            Connection<Channels, Priority> serverConnection = serverConnectionHandler.pollNewConnection(100, TimeUnit.MILLISECONDS);
+            assertNotNull(serverConnection);
 
-        ConnectionEvent<Channels, Priority> serverConnectionEvent = serverConnectionHandler.pollNewEvent(100, TimeUnit.MILLISECONDS);
-        assertNotNull(serverConnectionEvent);
-        Connection<Channels, Priority> serverConnection = serverConnectionEvent.connection;
 
-
-        // Open all channels, 0-49 are reliable, 50-99 are unreliable
-        AtomicInteger serverReceivedCount = new AtomicInteger(0);
-        CountDownLatch serverReceivedLatch = new CountDownLatch(100);
-        for (int i = 0; i < 100; i++) {
-            QChannel serverC = serverConnection.getChannel(Channels.values()[i]);
-
-            final boolean reliable = i < 50;
-            serverC.openOutputStream(reliable? QChannel.Reliability.RELIABLE : QChannel.Reliability.UNRELIABLE).sync();
-
-            serverC.setChannelHandler(new ChannelInboundHandlerAdapter() {
-                @Override
-                public void channelRead(ChannelHandlerContext ctx, Object msg) {
-                    if(!reliable) {
-                        ReferenceCountUtil.release(msg);
+            AtomicInteger serverReceivedCount = new AtomicInteger(0);
+            CountDownLatch serverReceivedLatch = new CountDownLatch(MAX_CHANNELS);
+            for (int i = 0; i < MAX_CHANNELS; i++) {
+                QChannel serverC = initChannel(serverConnection, i);
+                serverC.pipeline().addLast(new ChannelInboundHandlerAdapter() {
+                    @Override
+                    public void channelRead(ChannelHandlerContext ctx, Object msg) {
+                        serverReceivedCount.incrementAndGet();
+                        serverReceivedLatch.countDown();
                     }
-                    serverReceivedCount.incrementAndGet();
-                    serverReceivedLatch.countDown();
-                }
 
-                @Override
-                public boolean isSharable() {
-                    return true;
-                }
-            });
-        }
-
-        ConnectionEvent<Channels, Priority> clientConnectionEvent = clientConnectionHandler.pollNewEvent(100, TimeUnit.MILLISECONDS);
-        assertNotNull(clientConnectionEvent);
-        Connection<Channels, Priority> clientConnection = clientConnectionEvent.connection;
-        AtomicInteger clientReceivedCount = new AtomicInteger(0);
-        CountDownLatch clientReceivedLatch = new CountDownLatch(100);
-        for (int i = 0; i < 100; i++) {
-            QChannel clientC = clientConnection.getChannel(Channels.values()[i]);
-            final boolean reliable = i < 50;
-            clientC.openOutputStream(reliable? QChannel.Reliability.RELIABLE : QChannel.Reliability.UNRELIABLE).sync();
-
-            clientC.setChannelHandler(new ChannelInboundHandlerAdapter() {
-                @Override
-                public void channelRead(ChannelHandlerContext ctx, Object msg) {
-                    if(!reliable) {
-                        ReferenceCountUtil.release(msg);
+                    @Override
+                    public boolean isSharable() {
+                        return true;
                     }
-                    clientReceivedCount.incrementAndGet();
-                    clientReceivedLatch.countDown();
-                }
+                });
+            }
 
-                @Override
-                public boolean isSharable() {
-                    return true;
-                }
-            });
+            Connection<Channels, Priority> clientConnection = clientConnectionHandler.pollNewConnection(100, TimeUnit.MILLISECONDS);
+            assertNotNull(clientConnection);
+
+            AtomicInteger clientReceivedCount = new AtomicInteger(0);
+            CountDownLatch clientReceivedLatch = new CountDownLatch(MAX_CHANNELS);
+            for (int i = 0; i < MAX_CHANNELS; i++) {
+                QChannel clientC = initChannel(clientConnection, i);
+                clientC.pipeline().addLast(new ChannelInboundHandlerAdapter() {
+                    @Override
+                    public void channelRead(ChannelHandlerContext ctx, Object msg) {
+                        clientReceivedCount.incrementAndGet();
+                        clientReceivedLatch.countDown();
+                    }
+
+                    @Override
+                    public boolean isSharable() {
+                        return true;
+                    }
+                });
+            }
+
+            // Send a message on each channel
+            for (int i = 0; i < MAX_CHANNELS; i++) {
+                QChannel serverC = serverConnection.getChannel(Channels.values()[i]);
+                serverC.writeAndFlush(Unpooled.copiedBuffer(messageBytes)).sync();
+
+                QChannel clientC = clientConnection.getChannel(Channels.values()[i]);
+                clientC.writeAndFlush(Unpooled.copiedBuffer(messageBytes)).sync();
+            }
+
+
+            assertTrue(serverReceivedLatch.await(100, TimeUnit.MILLISECONDS), "Server did not receive all messages in time");
+            assertTrue(clientReceivedLatch.await(100, TimeUnit.MILLISECONDS), "Client did not receive all messages in time");
+            assertEquals(MAX_CHANNELS, serverReceivedCount.get(), "Server did not receive all messages");
+            assertEquals(MAX_CHANNELS, clientReceivedCount.get(), "Client did not receive all messages");
+
+            for (int i = 0; i < MAX_CHANNELS; i++) {
+                QChannel serverC = serverConnection.getChannel(Channels.values()[i]);
+                serverC.close().sync();
+
+                QChannel clientC = clientConnection.getChannel(Channels.values()[i]);
+                clientC.close().sync();
+            }
         }
-
-        // Send a message on each channel
-        for (int i = 0; i < 100; i++) {
-            QChannel serverC = serverConnection.getChannel(Channels.values()[i]);
-            serverC.writeAndFlush(Unpooled.copiedBuffer(messageBytes)).sync();
-
-            QChannel clientC = clientConnection.getChannel(Channels.values()[i]);
-            clientC.writeAndFlush(Unpooled.copiedBuffer(messageBytes)).sync();
-        }
-
-
-        assertTrue(serverReceivedLatch.await(100, TimeUnit.MILLISECONDS), "Server did not receive all messages in time");
-        assertTrue(clientReceivedLatch.await(100, TimeUnit.MILLISECONDS), "Client did not receive all messages in time");
-        assertEquals(100, serverReceivedCount.get(), "Server did not receive all messages");
-        assertEquals(100, clientReceivedCount.get(), "Client did not receive all messages");
-
-        for (int i = 0; i < 100; i++) {
-            QChannel serverC = serverConnection.getChannel(Channels.values()[i]);
-            serverC.close().sync();
-
-            QChannel clientC = clientConnection.getChannel(Channels.values()[i]);
-            clientC.close().sync();
-        }
-
-        clientNetworkEnvironment.close().await();
-        serverNetworkEnvironment.close().await();
-
-        clientNetworkEnvironment.shutdownGracefully().await();
-        serverNetworkEnvironment.shutdownGracefully().await();
     }
 
 }

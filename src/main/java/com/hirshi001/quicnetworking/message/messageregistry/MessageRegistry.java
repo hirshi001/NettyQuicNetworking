@@ -29,7 +29,6 @@ import java.util.function.Supplier;
  *
  * @author Hrishikesh Ingle
  */
-@SuppressWarnings("unused")
 public interface MessageRegistry {
 
 
@@ -92,9 +91,8 @@ public interface MessageRegistry {
      * @param <T>     the type of the message
      * @return the message holder for the given message
      */
-    @SuppressWarnings("unchecked")
     default <T extends Message> MessageHolder<T> getMessageHolder(T message) {
-        return (MessageHolder<T>) getMessageHolder(message.getClass());
+        return getMessageHolder(message.getClass());
     }
 
     /**
@@ -104,9 +102,8 @@ public interface MessageRegistry {
      * @param <T>   the type of the message
      * @return the message holder for the given class
      */
-    @SuppressWarnings("unchecked")
-    default <T extends Message> MessageHolder<T> getMessageHolder(Class<T> clazz) {
-        return (MessageHolder<T>) getMessageHolder(getId(clazz));
+    default <T extends Message> MessageHolder<T> getMessageHolder(Class<? extends Message> clazz) {
+        return getMessageHolder(getId(clazz));
     }
 
     /**
@@ -115,7 +112,7 @@ public interface MessageRegistry {
      * @param id the id to get the message holder for
      * @return the message holder for the given id
      */
-    MessageHolder<?> getMessageHolder(int id);
+    <T extends Message> MessageHolder<T> getMessageHolder(int id);
 
     /**
      * Gets the id for the given message holder.

@@ -1,5 +1,4 @@
 plugins {
-    id 'java'
     id 'maven-publish'
     id 'java-library'
 }
@@ -9,7 +8,7 @@ version = '1.1.4'
 
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(21)
+        languageVersion = JavaLanguageVersion.of(25)
     }
 }
 
@@ -20,15 +19,16 @@ repositories {
 
 dependencies {
     testImplementation platform('org.junit:junit-bom:5.10.0')
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     testImplementation 'org.junit.jupiter:junit-jupiter'
-    api 'io.netty.incubator:netty-incubator-codec-native-quic:0.0.74.Final:osx-aarch_64'
-    // https://mvnrepository.com/artifact/org.bouncycastle/bcpkix-jdk18on
-    api 'org.bouncycastle:bcpkix-jdk18on:1.79'
 
+    api 'io.netty:netty-codec-native-quic:4.2.12.Final'
+    runtimeOnly 'io.netty:netty-codec-native-quic:4.2.12.Final:osx-aarch_64'
+
+    api 'org.bouncycastle:bcpkix-jdk18on:1.79'
 
     // jetbrain annotations
     api 'org.jetbrains:annotations:23.0.0'
-
 }
 
 publishing {
@@ -41,7 +41,8 @@ publishing {
 
 test {
     useJUnitPlatform()
-    javaLauncher = javaToolchains.launcherFor {
-        languageVersion = JavaLanguageVersion.of(21)
-    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.compilerArgs += ['-Werror']
 }

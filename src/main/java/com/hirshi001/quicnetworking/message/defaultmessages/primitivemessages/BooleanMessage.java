@@ -24,7 +24,6 @@ import io.netty.buffer.ByteBuf;
  *
  * @author HRishikesh Ingle
  */
-@SuppressWarnings("unused")
 public class BooleanMessage extends Message {
 
     public boolean value;
@@ -62,8 +61,7 @@ public class BooleanMessage extends Message {
     @Override
     public boolean equals(Object obj) {
         if (obj == this) return true;
-        if (!(obj instanceof BooleanMessage)) return false;
-        BooleanMessage message = (BooleanMessage) obj;
+        if (!(obj instanceof BooleanMessage message)) return false;
         return message.value == value;
     }
 

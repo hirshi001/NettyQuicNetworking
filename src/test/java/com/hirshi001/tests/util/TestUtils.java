@@ -1,23 +1,17 @@
 package com.hirshi001.tests.util;
 
-import com.hirshi001.quicnetworking.connectionfactory.ConnectionFactory;
 import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.ConnectionHandler;
 import com.hirshi001.quicnetworking.helper.ClientConfig;
 import com.hirshi001.quicnetworking.helper.QuicNetworkingEnvironment;
 import com.hirshi001.quicnetworking.helper.QuicNetworkingHelper;
 import com.hirshi001.quicnetworking.helper.ServerConfig;
-import io.netty.bootstrap.Bootstrap;
-import io.netty.channel.Channel;
-import io.netty.channel.ChannelHandler;
-import io.netty.channel.nio.NioEventLoopGroup;
-import io.netty.channel.socket.nio.NioDatagramChannel;
+import io.netty.channel.MultiThreadIoEventLoopGroup;
+import io.netty.channel.nio.NioIoHandler;
 import io.netty.handler.ssl.util.InsecureTrustManagerFactory;
 import io.netty.handler.ssl.util.SelfSignedCertificate;
-import io.netty.incubator.codec.quic.*;
+import io.netty.handler.codec.quic.*;
 
 import java.net.SocketAddress;
-import java.security.cert.CertificateException;
-import java.util.concurrent.ExecutionException;
 
 public class TestUtils {
 
@@ -26,16 +20,16 @@ public class TestUtils {
 
 
     public static <Channels extends Enum<Channels>, Priority extends Enum<Priority>> QuicNetworkingEnvironment<Channels, Priority> newServer(Class<Channels> channelsClass, Class<Priority> priorityClass, SocketAddress address, ConnectionHandler<Channels, Priority> connectionHandler) throws Exception {
-        SelfSignedCertificate selfSignedCertificate = new SelfSignedCertificate();
+        SelfSignedCertificate cert = new SelfSignedCertificate("localhost");
         QuicSslContext context = QuicSslContextBuilder.forServer(
-                        selfSignedCertificate.privateKey(), null, selfSignedCertificate.certificate())
+                        cert.key(), null, cert.cert())
                 .applicationProtocols("test")
                 .build();
 
         ServerConfig serverConfig = new ServerConfig();
         serverConfig.setSslContext(context);
         serverConfig.setTokenHandler(InsecureQuicTokenHandler.INSTANCE);
-        serverConfig.setEventLoopGroup(new NioEventLoopGroup());
+        serverConfig.setEventLoopGroup(new MultiThreadIoEventLoopGroup(NioIoHandler.newFactory()));
         serverConfig.setInitialMaxStreamDataUnidirectional(MAX_DATA);
         serverConfig.setInitialMaxData(MAX_DATA);
 
@@ -52,7 +46,7 @@ public class TestUtils {
 
         ClientConfig clientConfig = new ClientConfig();
         clientConfig.setSslContext(context);
-        clientConfig.setEventLoopGroup(new NioEventLoopGroup());
+        clientConfig.setEventLoopGroup(new MultiThreadIoEventLoopGroup(NioIoHandler.newFactory()));
 
         clientConfig.setInitialMaxStreamDataUnidirectional(MAX_DATA);
         clientConfig.setInitialMaxData(MAX_DATA);

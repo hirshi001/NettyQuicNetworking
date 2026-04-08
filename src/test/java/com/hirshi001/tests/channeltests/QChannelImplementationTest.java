@@ -3,12 +3,8 @@ package com.hirshi001.tests.channeltests;
 import com.hirshi001.quicnetworking.channel.QChannel;
 import com.hirshi001.quicnetworking.connection.Connection;
 import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.BlockingPollableConnectionHandler;
-import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.ConnectionEvent;
-import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.ConnectionEventType;
-import com.hirshi001.quicnetworking.helper.QuicNetworkingEnvironment;
 import com.hirshi001.tests.util.TestUtils;
 import io.netty.channel.Channel;
-import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.util.NetUtil;
 import io.netty.util.concurrent.Future;
 import org.junit.jupiter.api.Test;
@@ -33,62 +29,37 @@ public class QChannelImplementationTest {
     @Test
     public void QChannelImplTest() throws Exception {
         BlockingPollableConnectionHandler<Channels, Priority> serverConnectionHandler = new BlockingPollableConnectionHandler<>();
-        QuicNetworkingEnvironment<Channels, Priority> serverNetworkEnvironment = TestUtils.newServer(Channels.class, Priority.class, new InetSocketAddress(9999), serverConnectionHandler);
-
         BlockingPollableConnectionHandler<Channels, Priority> clientConnectionHandler = new BlockingPollableConnectionHandler<>();
-        QuicNetworkingEnvironment<Channels, Priority> clientNetworkEnvironment = TestUtils.newClient(Channels.class, Priority.class, new InetSocketAddress(NetUtil.LOCALHOST4, 9999), clientConnectionHandler);
 
-        ConnectionEvent<Channels, Priority> serverConnectionEvent = serverConnectionHandler.pollNewEvent(100, TimeUnit.MILLISECONDS);
-        assertEquals(ConnectionEventType.CONNECTED, serverConnectionEvent.type);
-        Connection<Channels, Priority> serverConnection = serverConnectionEvent.connection;
+        try(var _ = TestUtils.newServer(Channels.class, Priority.class, new InetSocketAddress(9999), serverConnectionHandler);
+            var _ = TestUtils.newClient(Channels.class, Priority.class, new InetSocketAddress(NetUtil.LOCALHOST4, 9999), clientConnectionHandler);
+        ) {
+            Connection<Channels, Priority> serverConnection = serverConnectionHandler.pollNewConnection(100, TimeUnit.MILLISECONDS);
+            Connection<Channels, Priority> clientConnection = clientConnectionHandler.pollNewConnection(100, TimeUnit.MILLISECONDS);
 
-        ConnectionEvent<Channels, Priority> clientConnectionEvent = clientConnectionHandler.pollNewEvent(100, TimeUnit.MILLISECONDS);
-        assertEquals(ConnectionEventType.CONNECTED, clientConnectionEvent.type);
-        Connection<Channels, Priority> clientConnection = clientConnectionEvent.connection;
+            QChannel clientC1 = clientConnection.getChannel(Channels.C1);
+            QChannel serverC1 = serverConnection.getChannel(Channels.C1);
 
-        QChannel clientC1 = clientConnection.getChannel(Channels.C1);
-        QChannel serverC1 = serverConnection.getChannel(Channels.C1);
+            // Asserts regarding openOutputStream
+            assertThrows(IllegalArgumentException.class, () -> clientC1.openOutputStream(null));
+            assertThrows(IllegalArgumentException.class, () -> serverC1.openOutputStream(null));
 
+            AtomicReference<Future<? extends Channel>> channelFuture = new AtomicReference<>();
 
-        // Asserts regarding openOutputStream
-        assertThrows(IllegalArgumentException.class, () -> clientC1.openOutputStream(null));
-        assertThrows(IllegalArgumentException.class, () -> serverC1.openOutputStream(null));
+            assertDoesNotThrow(() -> channelFuture.set(clientC1.openOutputStream(QChannel.Reliability.RELIABLE)));
+            assertTrue(channelFuture.get().sync().isSuccess());
 
-        AtomicReference<Future<? extends Channel>> channelFuture = new AtomicReference<>();
-
-        assertDoesNotThrow(() -> channelFuture.set(clientC1.openOutputStream(QChannel.Reliability.RELIABLE)));
-        assertTrue(channelFuture.get().sync().isSuccess());
-
-        assertDoesNotThrow(() -> channelFuture.set(serverC1.openOutputStream(QChannel.Reliability.UNRELIABLE)));
-        assertTrue(channelFuture.get().sync().isSuccess());
+            assertDoesNotThrow(() -> channelFuture.set(serverC1.openOutputStream(QChannel.Reliability.UNRELIABLE)));
+            assertTrue(channelFuture.get().sync().isSuccess());
 
 
-        assertThrows(IllegalStateException.class, () -> clientC1.openOutputStream(QChannel.Reliability.RELIABLE));
-        assertThrows(IllegalStateException.class, () -> serverC1.openOutputStream(QChannel.Reliability.UNRELIABLE));
+            assertThrows(IllegalStateException.class, () -> clientC1.openOutputStream(QChannel.Reliability.RELIABLE));
+            assertThrows(IllegalStateException.class, () -> serverC1.openOutputStream(QChannel.Reliability.UNRELIABLE));
 
-        // Asserts regarding setChannelHandler
-        assertThrows(IllegalArgumentException.class, () -> clientC1.setChannelHandler(null));
-        assertDoesNotThrow(() -> clientC1.setChannelHandler(new ChannelInboundHandlerAdapter() {
-        }));
-        assertThrows(IllegalStateException.class, () -> clientC1.setChannelHandler(new ChannelInboundHandlerAdapter() {
-        }));
+            serverConnection.close().sync();
+            clientConnection.close().sync();
 
-        serverConnection.close().sync();
-        clientConnection.close().sync();
-
-        serverConnectionEvent = serverConnectionHandler.pollNewEvent(100, TimeUnit.MILLISECONDS);
-        assertEquals(ConnectionEventType.DISCONNECTED, serverConnectionEvent.type);
-        assertEquals(serverConnection, serverConnectionEvent.connection);
-
-        clientConnectionEvent = clientConnectionHandler.pollNewEvent(100, TimeUnit.MILLISECONDS);
-        assertEquals(ConnectionEventType.DISCONNECTED, clientConnectionEvent.type);
-        assertEquals(clientConnection, clientConnectionEvent.connection);
-
-        clientNetworkEnvironment.close().await();
-        serverNetworkEnvironment.close().await();
-
-        clientNetworkEnvironment.shutdownGracefully().await();
-        serverNetworkEnvironment.shutdownGracefully().await();
+        }
 
     }
 

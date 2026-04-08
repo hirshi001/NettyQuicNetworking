@@ -3,20 +3,18 @@ package com.hirshi001.examples.meagerexamples;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
-import io.netty.channel.Channel;
-import io.netty.channel.ChannelHandler;
-import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.ChannelInboundHandlerAdapter;
+import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.channel.nio.NioIoHandler;
 import io.netty.channel.socket.ChannelInputShutdownReadComplete;
 import io.netty.channel.socket.nio.NioDatagramChannel;
 import io.netty.handler.ssl.util.InsecureTrustManagerFactory;
-import io.netty.incubator.codec.quic.QuicChannel;
-import io.netty.incubator.codec.quic.QuicClientCodecBuilder;
-import io.netty.incubator.codec.quic.QuicSslContext;
-import io.netty.incubator.codec.quic.QuicSslContextBuilder;
-import io.netty.incubator.codec.quic.QuicStreamChannel;
-import io.netty.incubator.codec.quic.QuicStreamType;
+import io.netty.handler.codec.quic.QuicChannel;
+import io.netty.handler.codec.quic.QuicClientCodecBuilder;
+import io.netty.handler.codec.quic.QuicSslContext;
+import io.netty.handler.codec.quic.QuicSslContextBuilder;
+import io.netty.handler.codec.quic.QuicStreamChannel;
+import io.netty.handler.codec.quic.QuicStreamType;
 import io.netty.util.CharsetUtil;
 import io.netty.util.NetUtil;
 
@@ -27,11 +25,10 @@ public final class NettyClientExample {
 
     private NettyClientExample() { }
 
-    public static void main(String[] args) throws Exception {
+    static void main() throws Exception {
         QuicSslContext context = QuicSslContextBuilder.forClient().trustManager(InsecureTrustManagerFactory.INSTANCE).
                 applicationProtocols("http/0.9").build();
-        NioEventLoopGroup group = new NioEventLoopGroup(1);
-        try {
+        try (EventLoopGroup group = new MultiThreadIoEventLoopGroup(NioIoHandler.newFactory())){
             ChannelHandler codec = new QuicClientCodecBuilder()
                     .sslContext(context)
                     .maxIdleTimeout(5000, TimeUnit.MILLISECONDS)
@@ -89,8 +86,6 @@ public final class NettyClientExample {
             streamChannel.closeFuture().sync();
             quicChannel.closeFuture().sync();
             channel.close().sync();
-        } finally {
-            group.shutdownGracefully();
         }
     }
 }

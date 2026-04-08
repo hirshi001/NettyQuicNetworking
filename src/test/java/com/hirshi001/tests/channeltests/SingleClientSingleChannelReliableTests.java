@@ -3,20 +3,18 @@ package com.hirshi001.tests.channeltests;
 import com.hirshi001.quicnetworking.channel.QChannel;
 import com.hirshi001.quicnetworking.connection.Connection;
 import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.BlockingPollableConnectionHandler;
-import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.ConnectionEvent;
-import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.ConnectionEventType;
-import com.hirshi001.quicnetworking.helper.QuicNetworkingEnvironment;
 import com.hirshi001.tests.util.TestUtils;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.util.NetUtil;
-import io.netty.util.concurrent.Promise;
 import org.junit.jupiter.api.Test;
 
 import java.net.InetSocketAddress;
 import java.nio.charset.Charset;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -42,65 +40,51 @@ public class SingleClientSingleChannelReliableTests {
 
 
         BlockingPollableConnectionHandler<Channels, Priority> serverConnectionHandler = new BlockingPollableConnectionHandler<>();
-        QuicNetworkingEnvironment<Channels, Priority> serverNetworkEnvironment = TestUtils.newServer(Channels.class, Priority.class, new InetSocketAddress(9999), serverConnectionHandler);
-
         BlockingPollableConnectionHandler<Channels, Priority> clientConnectionHandler = new BlockingPollableConnectionHandler<>();
-        QuicNetworkingEnvironment<Channels, Priority> clientNetworkEnvironment = TestUtils.newClient(Channels.class, Priority.class, new InetSocketAddress(NetUtil.LOCALHOST4, 9999), clientConnectionHandler);
 
-        ConnectionEvent<Channels, Priority> serverConnectionEvent = serverConnectionHandler.pollNewEvent(100, TimeUnit.MILLISECONDS);
-        assertNotNull(serverConnectionEvent);
-        assertEquals(ConnectionEventType.CONNECTED, serverConnectionEvent.type, "Client did not connect to server");
-        Connection<Channels, Priority> serverConnection = serverConnectionEvent.connection;
-        QChannel serverC1 = serverConnection.getChannel(Channels.C1);
-        serverC1.openOutputStream(QChannel.Reliability.RELIABLE).sync();
-        serverC1.writeAndFlush(Unpooled.copiedBuffer(messageBytes)).sync();
+        try (var _ = TestUtils.newServer(Channels.class, Priority.class, new InetSocketAddress(9999), serverConnectionHandler);
+             var _ = TestUtils.newClient(Channels.class, Priority.class, new InetSocketAddress(NetUtil.LOCALHOST4, 9999), clientConnectionHandler);
+        ) {
 
-        ConnectionEvent<Channels, Priority> clientConnectionEvent = clientConnectionHandler.pollNewEvent(100, TimeUnit.MILLISECONDS);
-        assertNotNull(clientConnectionEvent);
-        assertEquals(ConnectionEventType.CONNECTED, clientConnectionEvent.type, "Server did not connect to client");
-        Connection<Channels, Priority> clientConnection = clientConnectionEvent.connection;
-        QChannel clientC1 = clientConnection.getChannel(Channels.C1);
-        Promise<ByteBuf> receivedBuffer = clientConnection.getConnection().eventLoop().newPromise();
-        Promise<ByteBuf> receivedBuffer2 = clientConnection.getConnection().eventLoop().newPromise();
+            Connection<Channels, Priority> serverConnection = serverConnectionHandler.pollNewConnection(100, TimeUnit.MILLISECONDS);
+            assertNotNull(serverConnection);
+            QChannel serverC1 = serverConnection.getChannel(Channels.C1);
+            serverC1.openOutputStream(QChannel.Reliability.RELIABLE).sync();
+            serverC1.writeAndFlush(Unpooled.copiedBuffer(messageBytes)).sync();
 
-        clientC1.setChannelHandler(new ChannelInboundHandlerAdapter() {
-            @Override
-            public void channelRead(ChannelHandlerContext ctx, Object msg) {
-                if(!receivedBuffer.isDone())
-                    receivedBuffer.setSuccess((ByteBuf) msg);
-                else if(!receivedBuffer2.isDone())
-                    receivedBuffer2.setSuccess((ByteBuf) msg);
-            }
-        });
+            Connection<Channels, Priority> clientConnection = clientConnectionHandler.pollNewConnection(100, TimeUnit.MILLISECONDS);
+            assertNotNull(clientConnection);
+            QChannel clientC1 = clientConnection.getChannel(Channels.C1);
 
+            BlockingQueue<ByteBuf> received = new LinkedBlockingQueue<>();
+            ByteBuf buf;
 
-        // Message should be received almost immediately
-        assertTrue(receivedBuffer.await(100, TimeUnit.MILLISECONDS), "First Message not received in time");
-        ByteBuf received = receivedBuffer.get();
+            clientC1.pipeline().addLast(new ChannelInboundHandlerAdapter() {
+                @Override
+                public void channelRead(ChannelHandlerContext ctx, Object msg) {
+                    received.add(((ByteBuf) msg).retain());
+                }
+            });
 
-        assertEquals(message, received.toString(Charset.defaultCharset()), "First received message does not match sent message");
+            // Message should be received almost immediately
+            buf = received.poll(100, TimeUnit.MILLISECONDS);
+            assertNotNull(buf, "Message not received in time");
+            assertEquals(message, buf.toString(Charset.defaultCharset()), "First received message does not match sent message");
 
 
-        // now try to send another message
-        final String message2 = "Hello World 2! from Server";
-        final byte[] messageBytes2 = message2.getBytes(Charset.defaultCharset());
+            // now try to send another message
+            final String message2 = "Hello World 2! from Server";
+            final byte[] messageBytes2 = message2.getBytes(Charset.defaultCharset());
 
-        serverC1.writeAndFlush(Unpooled.copiedBuffer(messageBytes2)).sync();
+            serverC1.writeAndFlush(Unpooled.copiedBuffer(messageBytes2)).sync();
 
-        assertTrue(receivedBuffer2.await(100, TimeUnit.MILLISECONDS), "Second Message not received in time");
-        ByteBuf received2 = receivedBuffer2.get();
+            buf = received.poll(100, TimeUnit.MILLISECONDS);
+            assertNotNull(buf, "Message not received in time");
+            assertEquals(message2, buf.toString(Charset.defaultCharset()), "Second received message does not match sent message");
 
-        assertEquals(message2, received2.toString(Charset.defaultCharset()), "Second received message does not match sent message");
-
-        clientC1.close().sync();
-        serverC1.close().sync();
-
-        clientNetworkEnvironment.close().await();
-        serverNetworkEnvironment.close().await();
-
-        clientNetworkEnvironment.shutdownGracefully().await();
-        serverNetworkEnvironment.shutdownGracefully().await();
-
+            clientC1.close().sync();
+            serverC1.close().sync();
+        }
     }
 
     @Test
@@ -109,62 +93,47 @@ public class SingleClientSingleChannelReliableTests {
         final byte[] messageBytes = message.getBytes(Charset.defaultCharset());
 
         BlockingPollableConnectionHandler<Channels, Priority> serverConnectionHandler = new BlockingPollableConnectionHandler<>();
-        QuicNetworkingEnvironment<Channels, Priority> serverNetworkEnvironment = TestUtils.newServer(Channels.class, Priority.class, new InetSocketAddress(9999), serverConnectionHandler);
 
         BlockingPollableConnectionHandler<Channels, Priority> clientConnectionHandler = new BlockingPollableConnectionHandler<>();
-        QuicNetworkingEnvironment<Channels, Priority> clientNetworkEnvironment = TestUtils.newClient(Channels.class, Priority.class, new InetSocketAddress(NetUtil.LOCALHOST4, 9999), clientConnectionHandler);
+        try (var _ = TestUtils.newServer(Channels.class, Priority.class, new InetSocketAddress(9999), serverConnectionHandler);
+             var _ = TestUtils.newClient(Channels.class, Priority.class, new InetSocketAddress(NetUtil.LOCALHOST4, 9999), clientConnectionHandler);
+        ) {
+            Connection<Channels, Priority> serverConnection = serverConnectionHandler.pollNewConnection(100, TimeUnit.MILLISECONDS);
+            assertNotNull(serverConnection);
+            QChannel serverC1 = serverConnection.getChannel(Channels.C1);
 
-        ConnectionEvent<Channels, Priority> serverConnectionEvent = serverConnectionHandler.pollNewEvent(100, TimeUnit.MILLISECONDS);
-        assertNotNull(serverConnectionEvent);
-        assertEquals(ConnectionEventType.CONNECTED, serverConnectionEvent.type, "Server did not connect to client");
-        Connection<Channels, Priority> serverConnection = serverConnectionEvent.connection;
-        QChannel serverC1 = serverConnection.getChannel(Channels.C1);
+            Connection<Channels, Priority> clientConnection = clientConnectionHandler.pollNewConnection(100, TimeUnit.MILLISECONDS);
+            assertNotNull(clientConnection);
+            QChannel clientC1 = clientConnection.getChannel(Channels.C1);
+            clientC1.openOutputStream(QChannel.Reliability.RELIABLE).sync();
+            clientC1.writeAndFlush(Unpooled.copiedBuffer(messageBytes)).sync();
 
-        serverConnectionEvent = clientConnectionHandler.pollNewEvent(100, TimeUnit.MILLISECONDS);
-        assertNotNull(serverConnectionEvent);
-        assertEquals(ConnectionEventType.CONNECTED, serverConnectionEvent.type, "Client did not connect to server");
-        Connection<Channels, Priority> clientConnection = serverConnectionEvent.connection;
-        QChannel clientC1 = clientConnection.getChannel(Channels.C1);
-        clientC1.openOutputStream(QChannel.Reliability.RELIABLE).sync();
-        clientC1.writeAndFlush(Unpooled.copiedBuffer(messageBytes)).sync();
+            BlockingQueue<ByteBuf> received = new LinkedBlockingQueue<>();
+            ByteBuf buf;
+            serverC1.pipeline().addLast(new ChannelInboundHandlerAdapter() {
+                @Override
+                public void channelRead(ChannelHandlerContext ctx, Object msg) {
+                    received.add(((ByteBuf) msg).retain());
+                }
+            });
 
-        Promise<ByteBuf> receivedBuffer = serverConnection.getConnection().eventLoop().newPromise();
-        Promise<ByteBuf> receivedBuffer2 = serverConnection.getConnection().eventLoop().newPromise();
-        serverC1.setChannelHandler(new ChannelInboundHandlerAdapter() {
-            @Override
-            public void channelRead(ChannelHandlerContext ctx, Object msg) {
-                if(!receivedBuffer.isDone())
-                    receivedBuffer.setSuccess((ByteBuf) msg);
-                else if(!receivedBuffer2.isDone())
-                    receivedBuffer2.setSuccess((ByteBuf) msg);
-            }
-        });
+            // Message should be received almost immediately
+            buf = received.poll(100, TimeUnit.MILLISECONDS);
+            assertNotNull(buf, "Message not received in time");
+            assertEquals(message, buf.toString(Charset.defaultCharset()), "First received message does not match sent message");
 
-        // Message should be received almost immediately
-        assertTrue(receivedBuffer.await(100, TimeUnit.MILLISECONDS), "Message not received in time");
-        ByteBuf received = receivedBuffer.get();
+            // now try to send another message
+            final String message2 = "Hello World 2! from Client";
+            final byte[] messageBytes2 = message2.getBytes(Charset.defaultCharset());
 
-        assertEquals(message, received.toString(Charset.defaultCharset()), "First received message does not match sent message");
+            clientC1.writeAndFlush(Unpooled.copiedBuffer(messageBytes2)).sync();
 
+            buf = received.poll(100, TimeUnit.MILLISECONDS);
+            assertNotNull(buf, "Message not received in time");
+            assertEquals(message2, buf.toString(Charset.defaultCharset()), "Second received message does not match sent message");
 
-        // now try to send another message
-        final String message2 = "Hello World 2! from Client";
-        final byte[] messageBytes2 = message2.getBytes(Charset.defaultCharset());
-
-        clientC1.writeAndFlush(Unpooled.copiedBuffer(messageBytes2)).sync();
-
-        assertTrue(receivedBuffer2.await(100, TimeUnit.MILLISECONDS), "Message not received in time");
-        ByteBuf received2 = receivedBuffer2.get();
-
-        assertEquals(message2, received2.toString(Charset.defaultCharset()), "Second received message does not match sent message");
-
-        clientC1.close().sync();
-        serverC1.close().sync();
-
-        clientNetworkEnvironment.close().await();
-        serverNetworkEnvironment.close().await();
-
-        clientNetworkEnvironment.shutdownGracefully().await();
-        serverNetworkEnvironment.shutdownGracefully().await();
+            clientC1.close().sync();
+            serverC1.close().sync();
+        }
     }
 }

@@ -4,10 +4,7 @@ import static com.hirshi001.examples.Shared.*;
 
 import com.hirshi001.quicnetworking.channel.QChannel;
 import com.hirshi001.quicnetworking.connection.Connection;
-import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.ConnectionEvent;
-import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.ConnectionEventType;
 import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.PollableConnectionHandler;
-import com.hirshi001.quicnetworking.helper.QuicNetworkingEnvironment;
 import com.hirshi001.quicnetworking.util.ByteBufferUtil;
 import com.hirshi001.tests.util.TestUtils;
 import io.netty.buffer.ByteBuf;
@@ -23,36 +20,30 @@ import java.util.Scanner;
 
 public class ServerExample {
 
-    public static void main(String[] args) throws Exception {
+    static void main() throws Exception {
 
         System.out.println("Server Starting");
 
         PollableConnectionHandler<Channels, Priority> connectionHandler = new PollableConnectionHandler<>();
-        QuicNetworkingEnvironment<Channels, Priority> networkEnvironment = TestUtils.newServer(Channels.class, Priority.class, new InetSocketAddress( 9999), connectionHandler);
+        try(var _ = TestUtils.newServer(Channels.class, Priority.class, new InetSocketAddress( 9999), connectionHandler)) {
 
-        TextChannelHandler textChannelHandler = new TextChannelHandler();
+            TextChannelHandler textChannelHandler = new TextChannelHandler();
 
-        Scanner scanner = new Scanner(System.in);
+            Scanner scanner = new Scanner(System.in);
 
-        while(true) {
-            ConnectionEvent<Channels, Priority> connectionEvent = connectionHandler.pollNewEvent();
-            if(connectionEvent == null) continue;
-            assert connectionEvent.type == ConnectionEventType.CONNECTED;
-            Connection<Channels, Priority> newConnection = connectionEvent.connection;
-            if(newConnection != null) {
+            while (true) {
+                Connection<Channels, Priority> newConnection = connectionHandler.pollNewEvent();
+                if (newConnection == null) continue;
                 textChannelHandler.newConnection(newConnection);
-            }
 
-            if(System.in.available() > 0) {
-                String message = scanner.nextLine();
-                if(message.equals("exit")) {
-                    break;
+                if (System.in.available() > 0) {
+                    String message = scanner.nextLine();
+                    if (message.equals("exit")) {
+                        break;
+                    }
                 }
             }
         }
-
-        networkEnvironment.close().await();
-        networkEnvironment.shutdownGracefully().await();
     }
 
     static class TextChannelHandler {
@@ -71,7 +62,7 @@ public class ServerExample {
             connection.setChannelPriority(Channels.TextChannel, Priority.LOW);
             QChannel textChannel = connection.getChannel(Channels.TextChannel);
             textChannel.openOutputStream(QChannel.Reliability.RELIABLE);
-            textChannel.setChannelHandler(new ChannelInboundHandlerAdapter(){
+            textChannel.pipeline().addLast(new ChannelInboundHandlerAdapter(){
                 @Override
                 public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
                     if(msg instanceof ByteBuf in) {

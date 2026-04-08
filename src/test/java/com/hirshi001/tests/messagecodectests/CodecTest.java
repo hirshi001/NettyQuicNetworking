@@ -34,7 +34,7 @@ public class CodecTest {
         List<Object> out = new ArrayList<>();
         codec.decode(null, buf, out);
 
-        StringMessage decoded = (StringMessage) out.get(0);
+        StringMessage decoded = (StringMessage) out.getFirst();
         assertEquals(string, decoded.value);
     }
     @Test

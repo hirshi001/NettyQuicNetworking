@@ -3,8 +3,6 @@ package com.hirshi001.examples.meagerexamples;
 import com.hirshi001.quicnetworking.channel.QChannel;
 import com.hirshi001.quicnetworking.connection.Connection;
 import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.BlockingPollableConnectionHandler;
-import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.ConnectionEvent;
-import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.ConnectionEventType;
 import com.hirshi001.quicnetworking.helper.QuicNetworkingEnvironment;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.*;
@@ -15,28 +13,28 @@ import io.netty.util.concurrent.GlobalEventExecutor;
 import com.hirshi001.tests.util.TestUtils;
 
 import java.net.InetSocketAddress;
+import java.util.concurrent.ExecutionException;
 
 public final class ClientTest {
 
     private ClientTest() {
     }
 
-    public static void main(String[] args) throws Exception {
-
-
+    static void main() throws Exception {
         BlockingPollableConnectionHandler<ServerTest.Channels, ServerTest.Priority> connectionHandler = new BlockingPollableConnectionHandler<>();
-        QuicNetworkingEnvironment<ServerTest.Channels, ServerTest.Priority> networkEnvironment = TestUtils.newClient(ServerTest.Channels.class, ServerTest.Priority.class, new InetSocketAddress(NetUtil.LOCALHOST4, 9999), connectionHandler);
+        try(QuicNetworkingEnvironment<ServerTest.Channels, ServerTest.Priority> networkEnvironment = TestUtils.newClient(ServerTest.Channels.class, ServerTest.Priority.class, new InetSocketAddress(NetUtil.LOCALHOST4, 9999), connectionHandler)) {
+            runClient(networkEnvironment, connectionHandler);
+        }
+    }
 
-        ConnectionEvent<ServerTest.Channels, ServerTest.Priority> connectionEvent = connectionHandler.pollNewEvent();
-        assert connectionEvent.type == ConnectionEventType.CONNECTED;
-        Connection<ServerTest.Channels, ServerTest.Priority> newConnection = connectionEvent.connection;
-
+    static void runClient(QuicNetworkingEnvironment<ServerTest.Channels, ServerTest.Priority> networkEnvironment, BlockingPollableConnectionHandler<ServerTest.Channels, ServerTest.Priority> connectionHandler) throws InterruptedException, ExecutionException {
+        Connection<ServerTest.Channels, ServerTest.Priority> newConnection = connectionHandler.pollNewConnection();
 
         // Reliable receive example
         QChannel textChannel = newConnection.getChannel(ServerTest.Channels.Text);
         Thread.sleep(500);
         DefaultPromise<ByteBuf> receiveFuture = new DefaultPromise<>(GlobalEventExecutor.INSTANCE);
-        textChannel.setChannelHandler(new ChannelInboundHandlerAdapter() {
+        textChannel.pipeline().addLast(new ChannelInboundHandlerAdapter() {
             @Override
             public void channelRead(ChannelHandlerContext ctx, Object msg) {
                 ByteBuf byteBuf = (ByteBuf) msg;
@@ -50,11 +48,11 @@ public final class ClientTest {
 
         receiveFuture.sync();
 
-        // Unreliable receive example (will  be received since localhost)
+        // Unreliable receive example (will be received since localhost)
         QChannel voiceChannel = newConnection.getChannel(ServerTest.Channels.Voice);
 
         DefaultPromise<ByteBuf> receiveFuture2 = new DefaultPromise<>(GlobalEventExecutor.INSTANCE);
-        voiceChannel.setChannelHandler(new ChannelInboundHandlerAdapter() {
+        voiceChannel.pipeline().addLast(new ChannelInboundHandlerAdapter() {
             @Override
             public void handlerAdded(ChannelHandlerContext ctx) throws Exception {
                 System.out.println("Handler added");
@@ -71,8 +69,5 @@ public final class ClientTest {
         receiveFuture2.sync();
         System.err.println("Received message:" + receiveFuture2.get().toString(CharsetUtil.US_ASCII));
         receiveFuture2.get().release();
-
-        networkEnvironment.close().await();
-        networkEnvironment.shutdownGracefully().await();
     }
 }

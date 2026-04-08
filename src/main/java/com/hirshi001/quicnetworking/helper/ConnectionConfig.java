@@ -20,6 +20,7 @@ public class ConnectionConfig {
         return initialMaxData;
     }
 
+    @SuppressWarnings("UnusedReturnValue")
     public ConnectionConfig setInitialMaxData(long initialMaxData) {
         this.initialMaxData = initialMaxData;
         return this;
@@ -29,6 +30,7 @@ public class ConnectionConfig {
         return initialMaxStreamDataUnidirectional;
     }
 
+    @SuppressWarnings("UnusedReturnValue")
     public ConnectionConfig setInitialMaxStreamDataUnidirectional(long initialMaxStreamDataUnidirectional) {
         this.initialMaxStreamDataUnidirectional = initialMaxStreamDataUnidirectional;
         return this;
@@ -56,6 +58,7 @@ public class ConnectionConfig {
         return eventLoopGroup;
     }
 
+    @SuppressWarnings("UnusedReturnValue")
     public ConnectionConfig setEventLoopGroup(EventLoopGroup eventLoopGroup) {
         this.eventLoopGroup = eventLoopGroup;
         return this;

@@ -3,8 +3,6 @@ package com.hirshi001.tests.messagecodectests;
 import com.hirshi001.quicnetworking.channel.QChannel;
 import com.hirshi001.quicnetworking.connection.Connection;
 import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.BlockingPollableConnectionHandler;
-import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.ConnectionEvent;
-import com.hirshi001.quicnetworking.helper.QuicNetworkingEnvironment;
 import com.hirshi001.quicnetworking.message.channelhandlers.MessageCodec;
 import com.hirshi001.quicnetworking.message.channelhandlers.MessageContext;
 import com.hirshi001.quicnetworking.message.channelhandlers.PollableMessageHandler;
@@ -62,79 +60,69 @@ public class CodecPollingHandlerUsageTest {
         }
 
         BlockingPollableConnectionHandler<Channels, Priority> serverConnectionHandler = new BlockingPollableConnectionHandler<>();
-        QuicNetworkingEnvironment<Channels, Priority> serverNetworkEnvironment = TestUtils.newServer(Channels.class, Priority.class, new InetSocketAddress(9999), serverConnectionHandler);
 
         BlockingPollableConnectionHandler<Channels, Priority> clientConnectionHandler = new BlockingPollableConnectionHandler<>();
-        QuicNetworkingEnvironment<Channels, Priority> clientNetworkEnvironment = TestUtils.newClient(Channels.class, Priority.class, new InetSocketAddress(NetUtil.LOCALHOST4, 9999), clientConnectionHandler);
+        try (var _ = TestUtils.newServer(Channels.class, Priority.class, new InetSocketAddress(9999), serverConnectionHandler);
+             var _ = TestUtils.newClient(Channels.class, Priority.class, new InetSocketAddress(NetUtil.LOCALHOST4, 9999), clientConnectionHandler);) {
 
-        ConnectionEvent<Channels, Priority> serverConnectionEvent = serverConnectionHandler.pollNewEvent(100, TimeUnit.MILLISECONDS);
-        Connection<Channels, Priority> serverConnection = serverConnectionEvent.connection;
-        final PollableMessageHandler serverHandler = new PollableMessageHandler(registry);
-        QChannel serverC1 = serverConnection.getChannel(Channels.C1);
-        serverC1.setChannelHandler(new ChannelInboundHandlerAdapter() {
-            @Override
-            public void handlerAdded(ChannelHandlerContext ctx) {
-                ctx.pipeline().addLast(new MessageCodec(registry), serverHandler);
-            }
+            Connection<Channels, Priority> serverConnection = serverConnectionHandler.pollNewConnection(100, TimeUnit.MILLISECONDS);
+            final PollableMessageHandler serverHandler = new PollableMessageHandler(registry);
+            QChannel serverC1 = serverConnection.getChannel(Channels.C1);
+            serverC1.pipeline().addLast(new ChannelInboundHandlerAdapter() {
+                @Override
+                public void handlerAdded(ChannelHandlerContext ctx) {
+                    ctx.pipeline().addLast(new MessageCodec(registry), serverHandler);
+                }
 
-            @Override
-            public boolean isSharable() {
-                return true;
-            }
-        });
+                @Override
+                public boolean isSharable() {
+                    return true;
+                }
+            });
 
-        serverC1.openOutputStream(reliability).sync();
+            serverC1.openOutputStream(reliability).sync();
 
-        ConnectionEvent<Channels, Priority> clientConnectionEvent = clientConnectionHandler.pollNewEvent(100, TimeUnit.MILLISECONDS);
-        Connection<Channels, Priority> clientConnection = clientConnectionEvent.connection;
-        final PollableMessageHandler clientHandler = new PollableMessageHandler(registry);
-        QChannel clientC1 = clientConnection.getChannel(Channels.C1);
-        clientC1.setChannelHandler(new ChannelInboundHandlerAdapter() {
-            @Override
-            public void handlerAdded(ChannelHandlerContext ctx) throws Exception {
-                ctx.pipeline().addLast(new MessageCodec(registry), clientHandler);
-            }
+            Connection<Channels, Priority> clientConnection = clientConnectionHandler.pollNewConnection(100, TimeUnit.MILLISECONDS);
+            final PollableMessageHandler clientHandler = new PollableMessageHandler(registry);
+            QChannel clientC1 = clientConnection.getChannel(Channels.C1);
+            clientC1.pipeline().addLast(new ChannelInboundHandlerAdapter() {
+                @Override
+                public void handlerAdded(ChannelHandlerContext ctx) throws Exception {
+                    ctx.pipeline().addLast(new MessageCodec(registry), clientHandler);
+                }
 
-            @Override
-            public boolean isSharable() {
-                return true;
-            }
-        });
-        clientC1.openOutputStream(reliability).sync();
+                @Override
+                public boolean isSharable() {
+                    return true;
+                }
+            });
+            clientC1.openOutputStream(reliability).sync();
 
 
-        // handlers set up, now send messages
-        // serverC1.writeAndFlush(new StringMessage(message)).sync();
-        serverC1.write(new IntegerArrayMessage(messageArray)).sync();
+            // handlers set up, now send messages
+            // serverC1.writeAndFlush(new StringMessage(message)).sync();
+            serverC1.write(new IntegerArrayMessage(messageArray)).sync();
 
-        // clientC1.writeAndFlush(new StringMessage(message)).sync();
-        // clientC1.writeAndFlush(new IntegerArrayMessage(messageArray)).sync();
+            // clientC1.writeAndFlush(new StringMessage(message)).sync();
+            // clientC1.writeAndFlush(new IntegerArrayMessage(messageArray)).sync();
 
-        // Check Server received messages
+            // Check Server received messages
 //        MessageContext<StringMessage> serverReceivedStringMessage = serverHandler.poll(100, TimeUnit.MILLISECONDS);
 //        MessageContext<IntegerArrayMessage> serverReceivedArrayMessage = serverHandler.poll(100, TimeUnit.MILLISECONDS);
 //
 //        assertEquals(message, serverReceivedStringMessage.msg.value, "Server received string message does not match sent message");
 //        assertArrayEquals(messageArray, serverReceivedArrayMessage.msg.array, "Server received array message does not match sent message");
 
-        // Check Client received messages
-        // MessageContext<StringMessage> clientReceivedStringMessage = clientHandler.poll(100, TimeUnit.MILLISECONDS);
-        MessageContext<IntegerArrayMessage> clientReceivedArrayMessage = clientHandler.poll(100, TimeUnit.MILLISECONDS);
+            // Check Client received messages
+            // MessageContext<StringMessage> clientReceivedStringMessage = clientHandler.poll(100, TimeUnit.MILLISECONDS);
+            MessageContext<IntegerArrayMessage> clientReceivedArrayMessage = clientHandler.poll(100, TimeUnit.MILLISECONDS);
 
-        // assertEquals(message, clientReceivedStringMessage.msg.value, "Client received string message does not match sent message");
-        assertArrayEquals(messageArray, clientReceivedArrayMessage.msg.array, "Client received array message does not match sent message");
-
-
-
-        clientC1.close().sync();
-        serverC1.close().sync();
-
-        clientNetworkEnvironment.close().await();
-        serverNetworkEnvironment.close().await();
-
-        clientNetworkEnvironment.shutdownGracefully().await();
-        serverNetworkEnvironment.shutdownGracefully().await();
+            // assertEquals(message, clientReceivedStringMessage.msg.value, "Client received string message does not match sent message");
+            assertArrayEquals(messageArray, clientReceivedArrayMessage.msg.array, "Client received array message does not match sent message");
 
 
+            clientC1.close().sync();
+            serverC1.close().sync();
+        }
     }
 }

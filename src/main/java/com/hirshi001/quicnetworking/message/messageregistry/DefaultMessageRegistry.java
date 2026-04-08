@@ -72,8 +72,9 @@ public class DefaultMessageRegistry implements MessageRegistry {
     }
 
     @Override
-    public final MessageHolder<?> getMessageHolder(int id) {
-        return intToMessageHolderMap.get(id);
+    @SuppressWarnings("unchecked")
+    public final <T extends Message> MessageHolder<T> getMessageHolder(int id) {
+        return (MessageHolder<T>) intToMessageHolderMap.get(id);
     }
 
     @Override

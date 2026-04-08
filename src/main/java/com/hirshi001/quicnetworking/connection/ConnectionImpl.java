@@ -1,16 +1,16 @@
 package com.hirshi001.quicnetworking.connection;
 
-import com.hirshi001.quicnetworking.channel.QChannel;
+import com.hirshi001.quicnetworking.channel.PriorityUpdater;
 import com.hirshi001.quicnetworking.channel.QChannelImpl;
+import com.hirshi001.quicnetworking.channel.StreamGenerator;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
-import io.netty.channel.ChannelFuture;
-import io.netty.channel.ChannelHandler;
-import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.ChannelInboundHandlerAdapter;
-import io.netty.channel.embedded.EmbeddedChannel;
-import io.netty.incubator.codec.quic.QuicChannel;
-import io.netty.incubator.codec.quic.QuicStreamChannel;
+import io.netty.channel.*;
+import io.netty.handler.codec.quic.QuicChannel;
+import io.netty.handler.codec.quic.QuicStreamChannel;
+import io.netty.handler.codec.quic.QuicStreamPriority;
+import io.netty.handler.codec.quic.QuicStreamType;
+import io.netty.util.concurrent.Future;
 
 
 public class ConnectionImpl<Channels extends Enum<Channels>, Priority extends Enum<Priority>> implements Connection<Channels, Priority> {
@@ -29,13 +29,24 @@ public class ConnectionImpl<Channels extends Enum<Channels>, Priority extends En
         this.channelsEnum = channelsEnum;
         this.priorityEnum = priorityEnum;
         this.connection = connection;
+        EventLoop eventLoop = connection.eventLoop();
 
         this.channels = new QChannelImpl[channelsEnum.getEnumConstants().length];
         for (Channels channel : channelsEnum.getEnumConstants()) {
-            channels[channel.ordinal()] = new QChannelImpl(this, channel);
+            QChannelImpl qChannel = new QChannelImpl(
+                    this,
+                    channel,
+                    handler -> connection.createStream(QuicStreamType.UNIDIRECTIONAL, handler),
+                    (priority, channel1) -> {
+                        if (channel1 instanceof QuicStreamChannel qc)
+                            qc.updatePriority(new QuicStreamPriority(priority, true));
+                    }
+            );
+            eventLoop.register(qChannel);
+            channels[channel.ordinal()] = qChannel;
         }
 
-        connection.pipeline().addLast(quicConnectionHandler());
+        connection.pipeline().addFirst(quicConnectionHandler());
     }
 
     public Class<Channels> getChannelsEnum() {

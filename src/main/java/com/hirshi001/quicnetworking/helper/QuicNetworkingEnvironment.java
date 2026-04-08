@@ -11,40 +11,52 @@ import io.netty.util.concurrent.PromiseCombiner;
 
 import java.util.concurrent.TimeUnit;
 
-public class QuicNetworkingEnvironment<Channels extends Enum<Channels>, Priority extends Enum<Priority>> {
+public class QuicNetworkingEnvironment<Channels extends Enum<Channels>, Priority extends Enum<Priority>> implements AutoCloseable{
 
     private final EventLoopGroup eventLoopGroup;
+    private final EventLoop eventLoop;
     private final Channel channel;
     private final ConnectionFactory<Channels, Priority> connectionFactory;
 
+
     QuicNetworkingEnvironment(EventLoopGroup eventLoopGroup, Channel channel, ConnectionHandler<Channels, Priority> connectionHandler, Class<Channels> channelsClass, Class<Priority> priorityClass) {
         this.eventLoopGroup = eventLoopGroup;
+        this.eventLoop = eventLoopGroup.next();
         this.channel = channel;
         this.connectionFactory = new ConnectionFactory<>(connectionHandler, eventLoopGroup, channelsClass, priorityClass);
     }
 
-    public Promise<QuicNetworkingEnvironment<Channels, Priority>> close() {
-        EventLoop eventLoop = eventLoopGroup.next();
+    @Override
+    public void close() {
+        closeAsync().awaitUninterruptibly();
+    }
+
+    public Future<?> closeAsync() {
         Promise<QuicNetworkingEnvironment<Channels, Priority>> promise = eventLoop.newPromise();
-        if (eventLoop.inEventLoop())
-            close0(eventLoop, promise);
-        else
-            eventLoop.submit(() -> close0(eventLoop, promise));
+
+        eventLoop.execute(() -> {
+            close0(promise);
+        });
 
         return promise;
     }
 
-    private void close0(EventLoop eventLoop, Promise<QuicNetworkingEnvironment<Channels, Priority>> promise) {
-        Promise<Void> combinerFinish = eventLoop.newPromise();
-        PromiseCombiner promiseCombiner = new PromiseCombiner(eventLoop);
+    private void close0(Promise<QuicNetworkingEnvironment<Channels, Priority>> promise) {
+        Promise<Void> aggregate = eventLoop.newPromise();
+        PromiseCombiner combiner = new PromiseCombiner(eventLoop);
 
-        combinerFinish.addListener(future -> promise.setSuccess(this));
+        combiner.add((Future<?>) connectionFactory.closeAllConnections());
+        combiner.add(channel.close());
 
-        promiseCombiner.add((Future<?>) connectionFactory.closeAllConnections());
-        promiseCombiner.add(channel.close());
+        combiner.finish(aggregate);
 
-        promiseCombiner.finish(combinerFinish);
-
+        aggregate.addListener(f -> {
+            if (f.isSuccess()) {
+                promise.setSuccess(this);
+            } else {
+                promise.setFailure(f.cause());
+            }
+        });
     }
 
     public Future<?> shutdownGracefully() throws InterruptedException {

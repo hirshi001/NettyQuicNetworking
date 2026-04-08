@@ -7,18 +7,18 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class PollableConnectionHandler<Channels extends Enum<Channels>, Priority extends Enum<Priority>> implements ConnectionHandler<Channels, Priority> {
 
-    private final Queue<ConnectionEvent<Channels, Priority>> connectionQueue;
+    private final Queue<Connection<Channels, Priority>> connectionQueue;
 
     public PollableConnectionHandler() {
         this.connectionQueue = new ConcurrentLinkedQueue<>();
     }
 
     @Override
-    public void newEvent(ConnectionEvent<Channels, Priority> event) {
-        connectionQueue.add(event);
+    public void newConnection(Connection<Channels, Priority> connection) {
+        connectionQueue.add(connection);
     }
 
-    public ConnectionEvent<Channels, Priority> pollNewEvent() {
+    public Connection<Channels, Priority> pollNewEvent() {
         return connectionQueue.poll();
     }
 }

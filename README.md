@@ -107,7 +107,7 @@ public static void handleConnection(Connection<Channel, Priority> connection) {
     textChannel.writeAndFlush(Unpooled.copiedBuffer("Hello, World!".getBytes()));
 
     // You likely want to handle data coming from the other end of the channel
-    textChannel.setChannelHandler(new ChannelInboundHandlerAdapter() {
+    textChannel.pipeline().addLast(new ChannelInboundHandlerAdapter() {
         @Override
         public void channelRead(ChannelHandlerContext ctx, Object msg) {
             ByteBuf buf = (ByteBuf) msg;
@@ -146,7 +146,7 @@ public static void handleConnection(Connection<Channel, Priority> connection) {
     textChannel.openOutputStream(QChannel.Reliability.Unreliable);
 
     // You likely want to handle data coming from the other end of the channel
-    textChannel.setChannelHandler(new ChannelInboundHandlerAdapter() {
+    textChannel.pipeline().addLast(new ChannelInboundHandlerAdapter() {
         @Override
         public void channelRead(ChannelHandlerContext ctx, Object msg) {
             // MessageDecoder is required to encode and decode messages

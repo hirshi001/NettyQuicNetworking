@@ -2,18 +2,19 @@ package com.hirshi001.tests.connectiontests;
 
 import com.hirshi001.quicnetworking.connection.Connection;
 import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.BlockingPollableConnectionHandler;
-import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.ConnectionEvent;
-import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.ConnectionEventType;
 import com.hirshi001.quicnetworking.helper.QuicNetworkingEnvironment;
+import com.hirshi001.tests.channeltests.SingleClientSingleChannelUnreliableTests;
+import com.hirshi001.tests.util.QuicNetworkingEnvironmentGroup;
 import com.hirshi001.tests.util.TestUtils;
-import io.netty.channel.EventLoopGroup;
 import io.netty.util.NetUtil;
 import org.junit.jupiter.api.Test;
 
 import java.net.InetSocketAddress;
-import java.util.concurrent.CountDownLatch;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -31,142 +32,90 @@ public class ConnectionTests {
     @Test
     public void singleClientConnectionTest() throws Exception {
         BlockingPollableConnectionHandler<Channels, Priority> serverConnectionHandler = new BlockingPollableConnectionHandler<>();
-        QuicNetworkingEnvironment<Channels, Priority> serverNetworkEnvironment = TestUtils.newServer(Channels.class, Priority.class, new InetSocketAddress(9999), serverConnectionHandler);
-
         BlockingPollableConnectionHandler<Channels, Priority> clientConnectionHandler = new BlockingPollableConnectionHandler<>();
-        QuicNetworkingEnvironment<Channels, Priority> clientNetworkEnvironment = TestUtils.newClient(Channels.class, Priority.class, new InetSocketAddress(NetUtil.LOCALHOST4, 9999), clientConnectionHandler);
 
-        AtomicReference<Connection> server = new AtomicReference<>();
-        AtomicReference<Connection> client = new AtomicReference<>();
+        try (var _ = TestUtils.newServer(Channels.class, Priority.class, new InetSocketAddress(9999), serverConnectionHandler);
+             var _ = TestUtils.newClient(Channels.class, Priority.class, new InetSocketAddress(NetUtil.LOCALHOST4, 9999), clientConnectionHandler);
+        ) {
+            Connection<Channels, Priority> serverConnection = serverConnectionHandler.pollNewConnection(100, TimeUnit.MILLISECONDS);
+            assertNotNull(serverConnection);
 
-        ConnectionEvent<Channels, Priority> serverConnectionEvent = assertDoesNotThrow(() -> serverConnectionHandler.pollNewEvent(100, TimeUnit.MILLISECONDS));
-        assertEquals(ConnectionEventType.CONNECTED, serverConnectionEvent.type);
-        server.set(serverConnectionEvent.connection);
+            Connection<Channels, Priority> clientConnection = clientConnectionHandler.pollNewConnection(100, TimeUnit.MILLISECONDS);
+            assertNotNull(clientConnection);
 
-        ConnectionEvent<Channels, Priority> clientConnectionEvent = assertDoesNotThrow(() -> clientConnectionHandler.pollNewEvent(100, TimeUnit.MILLISECONDS));
-        assertEquals(ConnectionEventType.CONNECTED, clientConnectionEvent.type);
-        client.set(clientConnectionEvent.connection);
-
-        assertNotNull(server.get());
-        assertNotNull(client.get());
-
-        server.get().close().sync();
-        client.get().close().sync();
-
-        clientNetworkEnvironment.close().await();
-        serverNetworkEnvironment.close().await();
-
-        clientNetworkEnvironment.shutdownGracefully().await();
-        serverNetworkEnvironment.shutdownGracefully().await();
+            serverConnection.close().sync();
+            clientConnection.close().sync();
+        }
     }
 
     @Test
     public void twoClientConnectionTest() throws Exception {
+
         BlockingPollableConnectionHandler<Channels, Priority> serverConnectionHandler = new BlockingPollableConnectionHandler<>();
-        QuicNetworkingEnvironment<Channels, Priority> serverNetworkEnvironment = TestUtils.newServer(Channels.class, Priority.class, new InetSocketAddress(9999), serverConnectionHandler);
-
         BlockingPollableConnectionHandler<Channels, Priority> clientConnectionHandler1 = new BlockingPollableConnectionHandler<>();
-        QuicNetworkingEnvironment<Channels, Priority> clientNetworkEnvironment1 = TestUtils.newClient(Channels.class, Priority.class, new InetSocketAddress(NetUtil.LOCALHOST4, 9999), clientConnectionHandler1);
-
         BlockingPollableConnectionHandler<Channels, Priority> clientConnectionHandler2 = new BlockingPollableConnectionHandler<>();
-        QuicNetworkingEnvironment<Channels, Priority> clientNetworkEnvironment2 = TestUtils.newClient(Channels.class, Priority.class, new InetSocketAddress(NetUtil.LOCALHOST4, 9999), clientConnectionHandler2);
 
-        AtomicReference<Connection> server1 = new AtomicReference<>();
-        AtomicReference<Connection> server2 = new AtomicReference<>();
+        try (var _ = TestUtils.newServer(Channels.class, Priority.class, new InetSocketAddress(9999), serverConnectionHandler);
+             var _ = TestUtils.newClient(Channels.class, Priority.class, new InetSocketAddress(NetUtil.LOCALHOST4, 9999), clientConnectionHandler1);
+             var _ = TestUtils.newClient(Channels.class, Priority.class, new InetSocketAddress(NetUtil.LOCALHOST4, 9999), clientConnectionHandler2);
+        ) {
 
-        AtomicReference<Connection> client1 = new AtomicReference<>();
-        AtomicReference<Connection> client2 = new AtomicReference<>();
+            Connection<Channels, Priority> serverConnection = serverConnectionHandler.pollNewConnection(100, TimeUnit.MILLISECONDS);
+            assertNotNull(serverConnection);
 
-        ConnectionEvent<Channels, Priority> serverConnectionEvent = assertDoesNotThrow(() -> serverConnectionHandler.pollNewEvent(100, TimeUnit.MILLISECONDS));
-        assertEquals(ConnectionEventType.CONNECTED, serverConnectionEvent.type);
-        server1.set(serverConnectionEvent.connection);
+            Connection<Channels, Priority> clientConnection1 = clientConnectionHandler1.pollNewConnection(100, TimeUnit.MILLISECONDS);
+            assertNotNull(clientConnection1);
+            Connection<Channels, Priority> clientConnection2 = clientConnectionHandler2.pollNewConnection(100, TimeUnit.MILLISECONDS);
+            assertNotNull(clientConnection2);
 
-        serverConnectionEvent = assertDoesNotThrow(() -> serverConnectionHandler.pollNewEvent(100, TimeUnit.MILLISECONDS));
-        assertEquals(ConnectionEventType.CONNECTED, serverConnectionEvent.type);
-        server2.set(serverConnectionEvent.connection);
-
-        ConnectionEvent<Channels, Priority> clientConnectionEvent = assertDoesNotThrow(() -> clientConnectionHandler1.pollNewEvent(100, TimeUnit.MILLISECONDS));
-        assertEquals(ConnectionEventType.CONNECTED, clientConnectionEvent.type);
-        client1.set(clientConnectionEvent.connection);
-
-        clientConnectionEvent = assertDoesNotThrow(() -> clientConnectionHandler2.pollNewEvent(100, TimeUnit.MILLISECONDS));
-        assertEquals(ConnectionEventType.CONNECTED, clientConnectionEvent.type);
-        client2.set(clientConnectionEvent.connection);
-
-        assertNotNull(server1.get());
-        assertNotNull(server2.get());
-        assertNotNull(client1.get());
-        assertNotNull(client2.get());
-
-        assertNotEquals(server1.get(), server2.get());
-        assertNotEquals(client1.get(), client2.get());
-
-        server1.get().close().sync();
-        server2.get().close().sync();
-        client1.get().close().sync();
-        client2.get().close().sync();
-
-        clientNetworkEnvironment1.close().await();
-        clientNetworkEnvironment2.close().await();
-        serverNetworkEnvironment.close().await();
-
-        clientNetworkEnvironment1.shutdownGracefully().await();
-        clientNetworkEnvironment2.shutdownGracefully().await();
-        serverNetworkEnvironment.shutdownGracefully().await();
+            serverConnection.close().sync();
+            clientConnection1.close().sync();
+            clientConnection2.close().sync();
+        }
     }
+
 
     @Test
     @SuppressWarnings("unchecked")
     public void manyClientConnectionTest() throws Exception {
-        BlockingPollableConnectionHandler<Channels, Priority> serverConnectionHandler = new BlockingPollableConnectionHandler<>();
-        QuicNetworkingEnvironment<Channels, Priority> serverNetworkEnvironment = TestUtils.newServer(Channels.class, Priority.class, new InetSocketAddress(9999), serverConnectionHandler);
 
         int numClients = 100;
-        BlockingPollableConnectionHandler<Channels, Priority>[] clientConnectionHandlers = new BlockingPollableConnectionHandler[numClients];
-        QuicNetworkingEnvironment<Channels, Priority>[] clientNetworkEnvironments = new QuicNetworkingEnvironment[numClients];
 
+        BlockingPollableConnectionHandler<Channels, Priority> serverConnectionHandler = new BlockingPollableConnectionHandler<>();
+
+        var clientConnectionHandlers = new ArrayList<BlockingPollableConnectionHandler<Channels, Priority>>();
+        var clientNetworkEnvironments = new ArrayList<QuicNetworkingEnvironment<Channels, Priority>>();
         for (int i = 0; i < numClients; i++) {
-            clientConnectionHandlers[i] = new BlockingPollableConnectionHandler<>();
-            clientNetworkEnvironments[i] = TestUtils.newClient(Channels.class, Priority.class, new InetSocketAddress(NetUtil.LOCALHOST4, 9999), clientConnectionHandlers[i]);
+            clientConnectionHandlers.add(new BlockingPollableConnectionHandler<>());
+            clientNetworkEnvironments.add(TestUtils.newClient(Channels.class, Priority.class, new InetSocketAddress(NetUtil.LOCALHOST4, 9999), clientConnectionHandlers.get(i)));
         }
 
-        AtomicReference<Connection>[] server = new AtomicReference[numClients];
-        AtomicReference<Connection>[] clients = new AtomicReference[numClients];
-        for (int i = 0; i < numClients; i++) {
-            clients[i] = new AtomicReference<>();
-            server[i] = new AtomicReference<>();
+        try (var _ = TestUtils.newServer(Channels.class, Priority.class, new InetSocketAddress(9999), serverConnectionHandler);
+             var _ = new QuicNetworkingEnvironmentGroup(clientNetworkEnvironments)) {
+
+
+            Connection[] server = new Connection[numClients];
+            Connection[] clients = new Connection[numClients];
+
+            for (int index = 0; index < numClients; index++) {
+
+                Connection<Channels, Priority> serverConnection = serverConnectionHandler.pollNewConnection(100, TimeUnit.MILLISECONDS);
+                Connection<Channels, Priority> clientConnection = clientConnectionHandlers.get(index).pollNewConnection(100, TimeUnit.MILLISECONDS);
+
+                assertNotNull(serverConnection);
+                assertNotNull(clientConnection);
+
+                server[index] = serverConnection;
+                clients[index] = clientConnection;
+            }
+
+            var futures = Stream.concat(Arrays.stream(server), Arrays.stream(clients))
+                    .map(Connection::close)
+                    .toList();
+
+            for (var future : futures)
+                future.sync();
+
         }
-
-        for (int i = 0; i < numClients; i++) {
-            final int index = i;
-            ConnectionEvent<Channels, Priority> serverConnectionEvent = assertDoesNotThrow(() -> serverConnectionHandler.pollNewEvent(100, TimeUnit.MILLISECONDS));
-            assertEquals(ConnectionEventType.CONNECTED, serverConnectionEvent.type);
-            server[index].set(serverConnectionEvent.connection);
-
-            ConnectionEvent<Channels, Priority> clientConnectionEvent = assertDoesNotThrow(() -> clientConnectionHandlers[index].pollNewEvent(100, TimeUnit.MILLISECONDS));
-            assertEquals(ConnectionEventType.CONNECTED, clientConnectionEvent.type);
-            clients[index].set(clientConnectionEvent.connection);
-        }
-
-        for (int i = 0; i < numClients; i++) {
-            assertNotNull(server[i].get());
-            assertNotNull(clients[i].get());
-        }
-
-        EventLoopGroup eventLoopGroup = serverNetworkEnvironment.getEventLoopGroup();
-
-        final CountDownLatch closeClientLatch = new CountDownLatch(numClients);
-        for (int i = 0; i < numClients; i++) {
-            final int index = i;
-            eventLoopGroup.execute(() -> {
-                assertDoesNotThrow(() -> clientNetworkEnvironments[index].close().await());
-                assertDoesNotThrow(() -> clientNetworkEnvironments[index].shutdownGracefully().await());
-                closeClientLatch.countDown();
-            });
-        }
-
-        closeClientLatch.await();
-        serverNetworkEnvironment.close().await();
-        serverNetworkEnvironment.shutdownGracefully().await();
     }
 }

@@ -2,7 +2,7 @@ package com.hirshi001.quicnetworking.channel.unreliable;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.*;
-import io.netty.incubator.codec.quic.QuicChannel;
+import io.netty.handler.codec.quic.QuicChannel;
 
 import java.net.SocketAddress;
 

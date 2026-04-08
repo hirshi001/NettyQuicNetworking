@@ -4,49 +4,42 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelPromise;
+import io.netty.channel.socket.DuplexChannel;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.Promise;
 
 
-public interface QChannel {
+public interface QChannel extends DuplexChannel {
 
     enum Reliability {
         UNRELIABLE,
         RELIABLE
     }
 
-    void setChannelHandler(ChannelHandler handler) throws IllegalStateException;
+    enum QChannelEvent {
+        INPUT_ACTIVE, // If the other side sends unreliable data, it will be called when the first unreliable packet is received, but before it is is handled
+        OUTPUT_ACTIVE,
+        INPUT_SHUTDOWN, // Not used for unreliable data
+        OUTPUT_SHUTDOWN
+    }
+
+    enum OutputState {
+        IDLE,
+        OPENING,
+        ACTIVE,
+        CLOSED,
+        FAILED
+    }
+
+    enum InputState {
+        IDLE,
+        ACTIVE,
+        CLOSED
+    }
 
     Future<? extends io.netty.channel.Channel> openOutputStream(QChannelImpl.Reliability reliability) throws IllegalStateException;
 
-    io.netty.channel.Channel getOutChannel();
+    OutputState getOutputState();
 
-    io.netty.channel.Channel getInChannel() ;
-
-    default ChannelFuture write(Object msg) {
-        return getOutChannel().write(msg);
-    }
-
-    default ChannelFuture write(Object msg, ChannelPromise promise) {
-       return getOutChannel().write(msg, promise);
-    }
-
-    default ChannelFuture writeAndFlush(Object msg) {
-        return getOutChannel().writeAndFlush(msg);
-    }
-
-    default ChannelFuture writeAndFlush(Object msg, ChannelPromise promise) {
-        return getOutChannel().writeAndFlush(msg, promise);
-    }
-
-    default QChannel flush() {
-        getOutChannel().flush();
-        return this;
-    }
-
-    Promise<QChannel> close();
-
-
-
-
+    InputState getInputState();
 }

@@ -2,7 +2,7 @@ package com.hirshi001.quicnetworking.connection;
 
 import com.hirshi001.quicnetworking.channel.QChannel;
 import io.netty.channel.ChannelFuture;
-import io.netty.incubator.codec.quic.QuicChannel;
+import io.netty.handler.codec.quic.QuicChannel;
 
 public interface Connection<Channels extends Enum<Channels>, Priority extends Enum<Priority>> {
 

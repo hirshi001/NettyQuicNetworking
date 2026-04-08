@@ -13,9 +13,9 @@ import java.util.List;
 
 /**
  * A Codec for on-the-fly encoding/decoding of bytes to messages and vise-versa.
- *
+ * <p>
  * This can be thought of as a combination of {@link ByteToMessageDecoder} and {@link MessageToByteEncoder}.
- *
+ * <p>
  * Be aware that sub-classes of {@link ByteToMessageCodec} <strong>MUST NOT</strong>
  * annotated with {@link Sharable}.
  */
@@ -60,7 +60,7 @@ public abstract class SharableByteToMessageCodec<I> extends ChannelDuplexHandler
     protected SharableByteToMessageCodec(boolean preferDirect) {
         // ensureNotSharable();
         outboundMsgMatcher = TypeParameterMatcher.find(this, SharableByteToMessageCodec.class, "I");
-        encoder = new SharableByteToMessageCodec.Encoder(preferDirect);
+        encoder = new SharableByteToMessageCodec<I>.Encoder(preferDirect);
     }
 
     /**
@@ -74,7 +74,7 @@ public abstract class SharableByteToMessageCodec<I> extends ChannelDuplexHandler
     protected SharableByteToMessageCodec(Class<? extends I> outboundMessageType, boolean preferDirect) {
         // ensureNotSharable();
         outboundMsgMatcher = TypeParameterMatcher.get(outboundMessageType);
-        encoder = new SharableByteToMessageCodec.Encoder(preferDirect);
+        encoder = new SharableByteToMessageCodec<I>.Encoder(preferDirect);
     }
 
     /**

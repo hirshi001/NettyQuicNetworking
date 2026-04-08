@@ -3,7 +3,6 @@ package com.hirshi001.tests.messagecodectests;
 import com.hirshi001.quicnetworking.channel.QChannel;
 import com.hirshi001.quicnetworking.connection.Connection;
 import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.BlockingPollableConnectionHandler;
-import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.ConnectionEvent;
 import com.hirshi001.quicnetworking.helper.QuicNetworkingEnvironment;
 import com.hirshi001.quicnetworking.message.channelhandlers.AsyncMessageHandler;
 import com.hirshi001.quicnetworking.message.channelhandlers.MessageCodec;
@@ -12,8 +11,7 @@ import com.hirshi001.quicnetworking.message.defaultmessages.primitivemessages.St
 import com.hirshi001.quicnetworking.message.messageregistry.DefaultMessageRegistry;
 import com.hirshi001.quicnetworking.message.messageregistry.MessageRegistry;
 import com.hirshi001.tests.util.TestUtils;
-import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.ChannelInboundHandlerAdapter;
+import io.netty.channel.*;
 import io.netty.util.NetUtil;
 import io.netty.util.concurrent.Promise;
 import org.junit.jupiter.api.Test;
@@ -54,95 +52,89 @@ public class CodecAsyncHandlerUsageTest {
         final int[] messageArray = {1, 2, 3, 4, 5};
 
         BlockingPollableConnectionHandler<Channels, Priority> serverConnectionHandler = new BlockingPollableConnectionHandler<>();
-        QuicNetworkingEnvironment<Channels, Priority> serverNetworkEnvironment = TestUtils.newServer(Channels.class, Priority.class, new InetSocketAddress(9999), serverConnectionHandler);
-
         BlockingPollableConnectionHandler<Channels, Priority> clientConnectionHandler = new BlockingPollableConnectionHandler<>();
-        QuicNetworkingEnvironment<Channels, Priority> clientNetworkEnvironment = TestUtils.newClient(Channels.class, Priority.class, new InetSocketAddress(NetUtil.LOCALHOST4, 9999), clientConnectionHandler);
+        try (
+             QuicNetworkingEnvironment<Channels, Priority> serverNetworkEnvironment = TestUtils.newServer(Channels.class, Priority.class, new InetSocketAddress(9999), serverConnectionHandler);
+             QuicNetworkingEnvironment<Channels, Priority> clientNetworkEnvironment = TestUtils.newClient(Channels.class, Priority.class, new InetSocketAddress(NetUtil.LOCALHOST4, 9999), clientConnectionHandler);
+             var serverEventLoop = serverNetworkEnvironment.getEventLoopGroup().next();
+             var clientEventLoop = clientNetworkEnvironment.getEventLoopGroup().next();) {
 
-        MessageRegistry serverRegistry = new DefaultMessageRegistry();
-        final Promise<StringMessage> serverReceivedStringMessage = serverNetworkEnvironment.getEventLoopGroup().next().newPromise();
-        final Promise<IntegerArrayMessage> serverReceivedArrayMessage = serverNetworkEnvironment.getEventLoopGroup().next().newPromise();
-        serverRegistry.register(StringMessage::new, (context, message1) -> {
-            serverReceivedStringMessage.setSuccess(message1);
-        }, StringMessage.class, 0);
-        serverRegistry.register(IntegerArrayMessage::new, (context, message1) -> {
-            serverReceivedArrayMessage.setSuccess(message1);
-        }, IntegerArrayMessage.class, 1);
+            MessageRegistry serverRegistry = new DefaultMessageRegistry();
+            final Promise<StringMessage> serverReceivedStringMessage = serverEventLoop.newPromise();
+            final Promise<IntegerArrayMessage> serverReceivedArrayMessage = serverEventLoop.newPromise();
+            serverRegistry.register(StringMessage::new, (context, message1) -> {
+                serverReceivedStringMessage.setSuccess(message1);
+            }, StringMessage.class, 0);
+            serverRegistry.register(IntegerArrayMessage::new, (context, message1) -> {
+                serverReceivedArrayMessage.setSuccess(message1);
+            }, IntegerArrayMessage.class, 1);
 
-        MessageRegistry clientRegistry = new DefaultMessageRegistry();
-        final Promise<StringMessage> clientReceivedStringMessage = clientNetworkEnvironment.getEventLoopGroup().next().newPromise();
-        final Promise<IntegerArrayMessage> clientReceivedArrayMessage = clientNetworkEnvironment.getEventLoopGroup().next().newPromise();
-        clientRegistry.register(StringMessage::new, (context, message1) -> {
-            clientReceivedStringMessage.setSuccess(message1);
-        }, StringMessage.class, 0);
-        clientRegistry.register(IntegerArrayMessage::new, (context, message1) -> {
-            clientReceivedArrayMessage.setSuccess(message1);
-        }, IntegerArrayMessage.class, 1);
+            MessageRegistry clientRegistry = new DefaultMessageRegistry();
+            final Promise<StringMessage> clientReceivedStringMessage = clientEventLoop.newPromise();
+            final Promise<IntegerArrayMessage> clientReceivedArrayMessage = clientEventLoop.newPromise();
+            clientRegistry.register(StringMessage::new, (context, message1) -> {
+                clientReceivedStringMessage.setSuccess(message1);
+            }, StringMessage.class, 0);
+            clientRegistry.register(IntegerArrayMessage::new, (context, message1) -> {
+                clientReceivedArrayMessage.setSuccess(message1);
+            }, IntegerArrayMessage.class, 1);
 
+            Connection<Channels, Priority> serverConnection = serverConnectionHandler.pollNewConnection(100, TimeUnit.MILLISECONDS);
+            QChannel serverC1 = serverConnection.getChannel(Channels.C1);
+            serverC1.pipeline().addLast(new ChannelInboundHandlerAdapter() {
+                @Override
+                public void handlerAdded(ChannelHandlerContext ctx) {
+                    ctx.pipeline().addLast(new MessageCodec(serverRegistry), new AsyncMessageHandler(serverRegistry));
+                }
 
-        ConnectionEvent<Channels, Priority> serverConnectionEvent = serverConnectionHandler.pollNewEvent(100, TimeUnit.MILLISECONDS);
-        Connection<Channels, Priority> serverConnection = serverConnectionEvent.connection;
-        QChannel serverC1 = serverConnection.getChannel(Channels.C1);
-        serverC1.setChannelHandler(new ChannelInboundHandlerAdapter() {
-            @Override
-            public void handlerAdded(ChannelHandlerContext ctx) {
-                ctx.pipeline().addLast(new MessageCodec(serverRegistry), new AsyncMessageHandler(serverRegistry));
-            }
+                @Override
+                public boolean isSharable() {
+                    return true;
+                }
+            });
 
-            @Override
-            public boolean isSharable() {
-                return true;
-            }
-        });
+            serverC1.openOutputStream(reliability).sync();
 
-        serverC1.openOutputStream(reliability).sync();
+            Connection<Channels, Priority> clientConnection = clientConnectionHandler.pollNewConnection(100, TimeUnit.MILLISECONDS);
+            QChannel clientC1 = clientConnection.getChannel(Channels.C1);
+            clientC1.pipeline().addLast(new ChannelInboundHandlerAdapter() {
+                @Override
+                public void handlerAdded(ChannelHandlerContext ctx) throws Exception {
+                    ctx.pipeline().addLast(new MessageCodec(clientRegistry), new AsyncMessageHandler(clientRegistry));
+                }
 
-        ConnectionEvent<Channels, Priority> clientConnectionEvent = clientConnectionHandler.pollNewEvent(100, TimeUnit.MILLISECONDS);
-        Connection<Channels, Priority> clientConnection = clientConnectionEvent.connection;
-        QChannel clientC1 = clientConnection.getChannel(Channels.C1);
-        clientC1.setChannelHandler(new ChannelInboundHandlerAdapter() {
-            @Override
-            public void handlerAdded(ChannelHandlerContext ctx) throws Exception {
-                ctx.pipeline().addLast(new MessageCodec(clientRegistry), new AsyncMessageHandler(clientRegistry));
-            }
-
-            @Override
-            public boolean isSharable() {
-                return true;
-            }
-        });
-        clientC1.openOutputStream(reliability).sync();
+                @Override
+                public boolean isSharable() {
+                    return true;
+                }
+            });
+            clientC1.openOutputStream(reliability).sync();
 
 
-        // handlers set up, now send messages
-        serverC1.writeAndFlush(new StringMessage(message)).sync();
-        serverC1.writeAndFlush(new IntegerArrayMessage(messageArray)).sync();
+            // handlers set up, now send messages
+            serverC1.writeAndFlush(new StringMessage(message)).sync();
+            serverC1.writeAndFlush(new IntegerArrayMessage(messageArray)).sync();
 
-        clientC1.writeAndFlush(new StringMessage(message)).sync();
-        clientC1.writeAndFlush(new IntegerArrayMessage(messageArray)).sync();
+            clientC1.writeAndFlush(new StringMessage(message)).sync();
+            clientC1.writeAndFlush(new IntegerArrayMessage(messageArray)).sync();
 
-        // Check Server received messages
-        assertTrue(serverReceivedStringMessage.await(100, TimeUnit.MILLISECONDS), "Server did not receive string message");
-        assertEquals(message, serverReceivedStringMessage.get().value, "Server received string message does not match sent message");
+            // Check Server received messages
+            assertTrue(serverReceivedStringMessage.await(100, TimeUnit.MILLISECONDS), "Server did not receive string message");
+            assertEquals(message, serverReceivedStringMessage.get().value, "Server received string message does not match sent message");
 
-        assertTrue(serverReceivedArrayMessage.await(100, TimeUnit.MILLISECONDS), "Server did not receive array message");
-        assertArrayEquals(messageArray, serverReceivedArrayMessage.get().array, "Server received array message does not match sent message");
+            assertTrue(serverReceivedArrayMessage.await(100, TimeUnit.MILLISECONDS), "Server did not receive array message");
+            assertArrayEquals(messageArray, serverReceivedArrayMessage.get().array, "Server received array message does not match sent message");
 
-        // Check Client received messages
-        assertTrue(clientReceivedStringMessage.await(100, TimeUnit.MILLISECONDS), "Client did not receive string message");
-        assertEquals(message, clientReceivedStringMessage.get().value, "Client received string message does not match sent message");
+            // Check Client received messages
+            assertTrue(clientReceivedStringMessage.await(100, TimeUnit.MILLISECONDS), "Client did not receive string message");
+            assertEquals(message, clientReceivedStringMessage.get().value, "Client received string message does not match sent message");
 
-        assertTrue(clientReceivedArrayMessage.await(100, TimeUnit.MILLISECONDS), "Client did not receive array message");
-        assertArrayEquals(messageArray, clientReceivedArrayMessage.get().array, "Client received array message does not match sent message");
+            assertTrue(clientReceivedArrayMessage.await(100, TimeUnit.MILLISECONDS), "Client did not receive array message");
+            assertArrayEquals(messageArray, clientReceivedArrayMessage.get().array, "Client received array message does not match sent message");
 
-        clientC1.close().sync();
-        serverC1.close().sync();
-
-        clientNetworkEnvironment.close().await();
-        serverNetworkEnvironment.close().await();
-
-        clientNetworkEnvironment.shutdownGracefully().await();
-        serverNetworkEnvironment.shutdownGracefully().await();
+            clientC1.close().sync();
+            serverC1.close().sync();
+        }
 
 
     }

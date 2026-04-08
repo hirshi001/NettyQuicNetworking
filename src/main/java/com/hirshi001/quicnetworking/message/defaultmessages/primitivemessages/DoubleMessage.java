@@ -24,7 +24,6 @@ import io.netty.buffer.ByteBuf;
  *
  * @author Hrishikesh Ingle
  */
-@SuppressWarnings("unused")
 public class DoubleMessage extends Message {
 
     public double value;
@@ -56,8 +55,7 @@ public class DoubleMessage extends Message {
     @Override
     public boolean equals(Object obj) {
         if (obj == this) return true;
-        if (!(obj instanceof DoubleMessage)) return false;
-        DoubleMessage message = (DoubleMessage) obj;
+        if (!(obj instanceof DoubleMessage message)) return false;
         return message.value == value;
     }
 

@@ -1,6 +1,6 @@
 package com.hirshi001.quicnetworking.helper;
 
-import io.netty.incubator.codec.quic.QuicSslContext;
+import io.netty.handler.codec.quic.QuicSslContext;
 
 public class ClientConfig extends ConnectionConfig{
 
@@ -16,6 +16,7 @@ public class ClientConfig extends ConnectionConfig{
         return sslContext;
     }
 
+    @SuppressWarnings("UnusedReturnValue")
     public ClientConfig setSslContext(QuicSslContext sslContext) {
         this.sslContext = sslContext;
         return this;

@@ -3,14 +3,13 @@ package com.hirshi001.examples.meagerexamples;
 import com.hirshi001.quicnetworking.channel.QChannel;
 import com.hirshi001.quicnetworking.connection.Connection;
 import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.BlockingPollableConnectionHandler;
-import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.ConnectionEvent;
-import com.hirshi001.quicnetworking.connectionfactory.connectionhandler.ConnectionEventType;
 import com.hirshi001.quicnetworking.helper.QuicNetworkingEnvironment;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.*;
 import io.netty.util.CharsetUtil;
 import com.hirshi001.tests.util.TestUtils;
 
+import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.Scanner;
 
@@ -30,63 +29,55 @@ public class ServerTest {
         Video
     }
 
-    public static void main(String[] args) throws Exception {
+    static void main() throws Exception {
         BlockingPollableConnectionHandler<Channels, Priority> connectionHandler = new BlockingPollableConnectionHandler<>();
 
-        QuicNetworkingEnvironment<Channels, Priority> networkEnvironment = TestUtils.newServer(Channels.class, Priority.class, new InetSocketAddress(9999), connectionHandler);
+        try (QuicNetworkingEnvironment<Channels, Priority> networkEnvironment = TestUtils.newServer(Channels.class, Priority.class, new InetSocketAddress(9999), connectionHandler)) {
+            runServer(networkEnvironment, connectionHandler);
+        }
+    }
 
-
+    @SuppressWarnings("BusyWait")
+    static void runServer(QuicNetworkingEnvironment<Channels, Priority> networkEnvironment, BlockingPollableConnectionHandler<Channels, Priority> connectionHandler) throws IOException, InterruptedException {
         Scanner scanner = new Scanner(System.in);
         while (true) {
-
-            if(System.in.available() > 0) {
+            if (System.in.available() > 0) {
                 String message = scanner.nextLine();
-                if(message.equals("exit")) {
+                if (message.equals("exit")) {
                     break;
                 }
             }
 
             System.out.println("Waiting for new connection");
 
-            ConnectionEvent<Channels, Priority> connectionEvent = connectionHandler.pollNewEvent();
-            assert connectionEvent.type == ConnectionEventType.CONNECTED;
-            Connection<ServerTest.Channels, ServerTest.Priority> newConnection = connectionEvent.connection;
-
-            if(newConnection == null) {
+            Connection<Channels, Priority> newConnection = connectionHandler.pollNewConnection();
+            if (newConnection == null) {
                 continue;
             }
+
             System.out.println("New connection accepted");
             QChannel textChannel = newConnection.getChannel(Channels.Text);
 
             System.out.println("Creating Text Output Stream");
             textChannel.openOutputStream(QChannel.Reliability.RELIABLE).sync();
 
-            Channel textOutChannel = textChannel.getOutChannel();
-            assert textOutChannel.isActive();
-            assert textOutChannel.isOpen();
+            assert textChannel.getOutputState() == QChannel.OutputState.ACTIVE;
             System.out.println("Writing to Text Output Stream");
-            textOutChannel.writeAndFlush(Unpooled.copiedBuffer("Hello World from text", CharsetUtil.US_ASCII));
+            textChannel.writeAndFlush(Unpooled.copiedBuffer("Hello World from text", CharsetUtil.US_ASCII));
 
             Thread.sleep(1000);
 
-            textOutChannel.writeAndFlush(Unpooled.copiedBuffer("Hello World 2! from text", CharsetUtil.US_ASCII));
+            textChannel.writeAndFlush(Unpooled.copiedBuffer("Hello World 2! from text", CharsetUtil.US_ASCII));
 
             QChannel voiceChannel = newConnection.getChannel(Channels.Voice);
             System.out.println("Creating Voice Output Stream");
             voiceChannel.openOutputStream(QChannel.Reliability.UNRELIABLE).sync();
 
             Thread.sleep(2000);
-            Channel voiceOutChannel = voiceChannel.getOutChannel();
-            assert voiceOutChannel.isActive();
-            assert voiceOutChannel.isOpen();
+            assert voiceChannel.getOutputState() == QChannel.OutputState.ACTIVE;
             System.out.println("Writing to Voice Output Stream");
-            voiceOutChannel.writeAndFlush(Unpooled.copiedBuffer("Hello World from Voice", CharsetUtil.US_ASCII));
-
+            voiceChannel.writeAndFlush(Unpooled.copiedBuffer("Hello World from Voice", CharsetUtil.US_ASCII));
         }
-
-        networkEnvironment.close().await();
-        networkEnvironment.shutdownGracefully().await();
     }
-
-
 }
+

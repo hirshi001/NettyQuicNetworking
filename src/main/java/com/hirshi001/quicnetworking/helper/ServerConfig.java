@@ -2,8 +2,8 @@ package com.hirshi001.quicnetworking.helper;
 
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
-import io.netty.incubator.codec.quic.QuicSslContext;
-import io.netty.incubator.codec.quic.QuicTokenHandler;
+import io.netty.handler.codec.quic.QuicSslContext;
+import io.netty.handler.codec.quic.QuicTokenHandler;
 
 public class ServerConfig extends ConnectionConfig{
 
@@ -20,6 +20,7 @@ public class ServerConfig extends ConnectionConfig{
         return tokenHandler;
     }
 
+    @SuppressWarnings("UnusedReturnValue")
     public ServerConfig setTokenHandler(QuicTokenHandler tokenHandler) {
         this.tokenHandler = tokenHandler;
         return this;
@@ -29,6 +30,7 @@ public class ServerConfig extends ConnectionConfig{
         return sslContext;
     }
 
+    @SuppressWarnings("UnusedReturnValue")
     public ServerConfig setSslContext(QuicSslContext sslContext) {
         this.sslContext = sslContext;
         return this;
